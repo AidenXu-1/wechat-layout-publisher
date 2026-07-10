@@ -1,0 +1,29 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  skill:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: wechat-layout-publisher/scripts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: wechat-layout-publisher/scripts/package-lock.json
+      - run: npm ci
+      - run: npm run validate-skill
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run quick-validate
+      - run: npm run diagnose-credentials

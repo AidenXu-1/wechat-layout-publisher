@@ -1,0 +1,7 @@
+.DS_Store
+*.zip
+release/
+wechat-layout-publisher/scripts/node_modules/
+wechat-layout-publisher/output/
+wechat-layout-publisher/.env
+*.log

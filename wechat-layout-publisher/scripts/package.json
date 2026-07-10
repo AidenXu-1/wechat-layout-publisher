@@ -1,0 +1,37 @@
+{
+  "name": "wechat-layout-publisher-scripts",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "scripts": {
+    "preview": "node make-preview.mjs",
+    "publish": "tsx publish.ts",
+    "img2base64": "tsx img2base64.ts",
+    "extract-video-frame": "node extract-video-frame.mjs",
+    "verify-article": "node verify-article.mjs",
+    "verify-copy": "node verify-copy.mjs",
+    "verify-copy-ready": "node verify-copy-ready.mjs",
+    "verify-image-plan": "node validate-image-plan.mjs",
+    "typecheck": "tsc --noEmit",
+    "quick-validate": "node quick-validate.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "validate-skill": "node validate-skill.mjs",
+    "setup": "tsx setup-credentials.ts setup",
+    "check-credentials": "tsx setup-credentials.ts check",
+    "diagnose-credentials": "tsx setup-credentials.ts diagnose",
+    "import-credentials": "tsx setup-credentials.ts import",
+    "clear-credentials": "tsx setup-credentials.ts clear"
+  },
+  "dependencies": {
+    "marked": "12.0.2",
+    "sharp": "0.34.4",
+    "tsx": "4.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "typescript": "5.9.3"
+  }
+}
