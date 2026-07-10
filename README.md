@@ -1,24 +1,24 @@
-# wechat-layout-publisher
+# wechat-layout-publisher（公众号排版发布）
 
-Public repository for the distributable `wechat-layout-publisher` Agent Skill.
+这是可公开分发的 `wechat-layout-publisher` 智能体 Skill。
 
-It turns an article into polished WeChat Official Account HTML, plans and places visuals through four semantic routes, creates a `2.35:1` headline cover, produces verified copy-ready previews, and can add the finished article to the WeChat draft box when explicitly requested.
+它可以将文章生成适合微信公众号的精美图文排版，通过四种语义配图路线规划并放置图片，生成 `2.35:1` 公众号头条封面，提供经过验证的可复制预览，并在用户明确要求时将成品写入微信公众号草稿箱。
 
-## Highlights
+## 核心能力
 
-- Deep content classification with a hard evidence-screenshot gate for news and event coverage.
-- Four visual routes: user assets, evidence screenshots, generated editorial images, and coded structural visuals.
-- Agent-agnostic image generation with a disclosed coded fallback when the current Agent cannot generate images.
-- Separate local-only and verified WeChat copy-ready previews.
-- Guarded remote-image fetching, local asset boundaries, image validation, and preflight before WeChat requests.
-- Secure credential setup for macOS Keychain and Windows Credential Manager.
-- Cross-platform validation on macOS, Windows, and Linux through GitHub Actions.
+- 深度识别内容类型，为新闻和事件类文章设置强制证据截图门禁。
+- 四种配图路线：用户素材、资讯证据截图、编辑型生成图片、代码结构图。
+- 不绑定特定智能体：有生图能力时调用原生生图工具，没有时提供明确标记的代码降级图和可复用提示词。
+- 严格区分本地预览与经过验证的公众号可复制预览。
+- 提供远程图片安全下载、本地素材目录隔离、图片真实性检查和微信请求前置验证。
+- 支持使用 macOS 钥匙串和 Windows 凭据管理器安全保存配置。
+- 通过 GitHub Actions 在 macOS、Windows 和 Linux 上进行跨平台验证。
 
-## Install
+## 安装
 
-Requirements: Node.js `18.17+`, npm, and an Agent that supports local Skills.
+环境要求：Node.js `18.17+`、npm，以及支持本地 Skill 的智能体。
 
-macOS or Linux:
+macOS 或 Linux：
 
 ```bash
 git clone https://github.com/AidenXu-1/wechat-layout-publisher.git wechat-layout-publisher-repo
@@ -28,7 +28,7 @@ cd ~/.codex/skills/wechat-layout-publisher/scripts
 npm ci --omit=dev
 ```
 
-Windows PowerShell:
+Windows PowerShell：
 
 ```powershell
 git clone https://github.com/AidenXu-1/wechat-layout-publisher.git wechat-layout-publisher-repo
@@ -38,31 +38,31 @@ Set-Location "$HOME\.codex\skills\wechat-layout-publisher\scripts"
 npm ci --omit=dev
 ```
 
-For draft-box publishing, run `npm run setup` in the installed `scripts` directory. The setup wizard explains how to obtain the WeChat AppID/AppSecret and stores them in the system credential manager. Do not commit a local `.env`.
+如果需要写入公众号草稿箱，请在安装后的 `scripts` 目录运行 `npm run setup`。配置向导会说明如何获取微信公众号 AppID 和 AppSecret，并将它们保存到系统凭据管理器。不要提交本地 `.env` 文件。
 
-## Use
+## 使用
 
-Ask your Agent to use `wechat-layout-publisher` and provide an article or article path plus any images or videos. The Skill first builds and validates `image-plan.json`, then produces a local preview. Draft-box publishing happens only when explicitly requested.
+让你的智能体调用 `wechat-layout-publisher`，然后提供文章正文或文章路径，也可以同时提供图片和视频素材。Skill 会先生成并验证 `image-plan.json`，再输出本地预览。只有用户明确要求时，才会执行公众号草稿箱写入。
 
-## Source Of Truth
+## 文件边界
 
-- `wechat-layout-publisher/` is the clean distributable Skill package.
-- `~/.codex/skills/wechat-layout-publisher/` is an installed runtime copy and may contain `node_modules`.
-- Generated articles, screenshots, covers, `.env`, and credentials do not belong in the Skill package.
-- WeChat credentials belong in macOS Keychain or Windows Credential Manager under the service name `wechat-layout-publisher`.
+- `wechat-layout-publisher/` 是可直接分发的纯净 Skill 包，也是项目源码真相源。
+- `~/.codex/skills/wechat-layout-publisher/` 是本机全局安装副本，可以包含 `node_modules`。
+- 生成的文章、截图、封面、`.env` 和凭据都不属于 Skill 安装包。
+- 微信公众号凭据应保存在 macOS 钥匙串或 Windows 凭据管理器中，标准服务名为 `wechat-layout-publisher`。
 
-Never sync changes from the installed runtime back into the source package. Update the source first, validate it, then install that exact version globally.
+不要把全局安装副本反向同步到源码包。正确流程是：先修改源码、完成验证，再将同一版本安装到全局目录。
 
-## Validation
+## 验证
 
-Normal runtime installation uses only production dependencies:
+普通运行环境只安装生产依赖：
 
 ```bash
 cd wechat-layout-publisher/scripts
 npm ci --omit=dev
 ```
 
-Repository development and release validation use the complete dependency set:
+仓库开发和版本发布需要安装完整依赖并执行全部检查：
 
 ```bash
 cd wechat-layout-publisher/scripts
@@ -73,14 +73,14 @@ npm test
 npm run quick-validate
 ```
 
-Also run the Codex system validator when available:
+如果本机安装了 Codex 系统验证器，还应执行：
 
 ```bash
 python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py ../
 ```
 
-Before a GitHub release, repeat the complete validation stack from a fresh clone on macOS and Windows, then compare the installed Skill source files with the tagged source package.
+GitHub Actions 会在 macOS、Windows 和 Linux 上重复执行完整验证栈。
 
-## License
+## 开源许可证
 
-Copyright (c) 2026 AidenXu-1. Released under the [GNU Affero General Public License v3.0](LICENSE). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for design-research provenance.
+版权所有 © 2026 AidenXu-1。本项目基于 [GNU Affero General Public License v3.0](LICENSE) 发布。设计研究来源见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

@@ -1,22 +1,22 @@
-# Changelog
+# 更新记录
 
 ## 1.0.0 - 2026-07-11
 
-- Closed adversarial audit findings for IPv4-mapped IPv6 SSRF bypasses and fake WeChat image hostnames.
-- Made the final image plan mandatory at the draft publishing entry point and strengthened two-signal news classification.
-- Added real PNG/JPEG asset checks, local asset-directory boundaries, and complete body-image/cover preflight before WeChat requests.
-- Allowed safety-checked coded SVG/HTML assets while rejecting every external resource scheme, including protocol-relative, FTP, and file references.
-- Updated the optional OpenAI API fallback to GPT Image 2 with supported landscape dimensions.
-- Split local-only and verified copy-ready preview controls, with strict remote/data-URI overrides.
-- Removed macOS Keychain secret values from child-process arguments.
-- Made generated-image routing Agent-agnostic: use any available native image tool, with Codex Image Gen as one implementation.
-- Added a disclosed coded fallback, reusable external prompt, and required user accept/replace decision when the current Agent cannot generate images.
-- Replaced loose image suggestions with a validated four-route semantic plan: user assets, evidence screenshots, generated images, and coded structural visuals.
-- Added conservative news/mixed-news detection and a final captured-evidence gate.
-- Required Codex Image Gen for every generated-image route, not only the hero.
-- Added supplied-video frame timestamps, source authority tiers, route placement, and provenance checks.
-- Added guarded remote-image downloads and real image-format validation.
-- Added mandatory publish preflight before credentials or WeChat API calls.
-- Added exact `900 x 383` generated-cover cropping.
-- Added deterministic dependency versions, tests, and cross-platform CI preparation.
-- Clarified source-package, installed-runtime, credential, and release boundaries.
+- 修复 IPv4 映射 IPv6 绕过 SSRF 防护和伪微信图片域名等对抗审查问题。
+- 草稿箱发布入口强制校验最终图片计划，并强化双信号资讯识别。
+- 增加真实 PNG/JPEG 检查、本地素材目录隔离，以及正文图片和封面的完整前置验证。
+- 允许经过安全检查的 SVG/HTML 代码可视化，同时拒绝协议相对地址、FTP、文件地址等外部资源引用。
+- 将可选 OpenAI API 生图方案更新为 GPT Image 2，并使用受支持的横向尺寸。
+- 区分本地预览和公众号可复制预览，远程图片与 data URI 必须显式验证。
+- macOS 钥匙串写入不再将秘密值放进子进程参数。
+- 生图路线改为智能体无关：使用当前智能体可用的原生生图工具，Codex 使用 Image Gen。
+- 当智能体无法生图时，提供明确标记的代码降级图、可复用提示词和用户接受或替换流程。
+- 建立经过验证的四路语义配图计划：用户素材、证据截图、生成图片和代码结构图。
+- 增加资讯和混合资讯识别，以及最终证据截图门禁。
+- Codex 中所有生成图片路线都必须调用 Image Gen，不再只生成首图。
+- 增加用户视频抽帧时间、来源权威等级、语义放置和来源记录检查。
+- 增加远程图片安全下载和真实图片格式验证。
+- 凭据读取和微信 API 调用前必须通过发布前置验证。
+- 公众号头条封面统一处理为精确的 `900 × 383`。
+- 固定依赖版本，增加自动化测试和跨平台 CI。
+- 明确源码包、全局安装副本、凭据和发布版本之间的边界。

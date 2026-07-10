@@ -1,9 +1,9 @@
-# Security
+# 安全说明
 
-Do not commit AppID, AppSecret, OpenAI API keys, `.env`, generated article outputs, or uploaded-image URLs that are not intended to be public.
+不要提交微信公众号 AppID、AppSecret、OpenAI API Key、`.env`、文章产出，或不应公开的微信托管图片地址。
 
-The Skill reads publishing credentials only from the current environment, a local ignored `.env`, or the standard `wechat-layout-publisher` entry in macOS Keychain or Windows Credential Manager. Diagnostic commands report presence only and must never print secret values.
+Skill 只会从当前环境变量、已忽略的本地 `.env`，或服务名为 `wechat-layout-publisher` 的 macOS 钥匙串和 Windows 凭据管理器读取发布凭据。诊断命令只报告凭据是否存在，绝不能输出秘密值。
 
-Remote image fetching blocks local and private network targets, limits redirects, time, and bytes, and validates image bytes before upload. Treat any bypass of those checks or any secret disclosure as a security issue and stop release or publishing work until it is resolved.
+远程图片下载会拦截本地和私有网络目标，限制重定向次数、超时时间和下载大小，并在上传前验证图片真实字节。发现任何绕过或秘密泄露时，应立即停止发布，修复后再继续。
 
-The `198.18.0.0/15` benchmarking range is blocked together with private, loopback, link-local, documentation, translated-private, and other reserved targets. Requests are pinned to the validated DNS result and remain subject to protocol, redirect, timeout, byte, MIME, and image-signature checks.
+`198.18.0.0/15` 基准测试地址段会与私网、回环、链路本地、文档、私网转换和其他保留地址一起被阻断。请求会固定到已经验证的 DNS 解析结果，并继续接受协议、重定向、超时、大小、MIME 和图片签名检查。
