@@ -114,7 +114,7 @@ AI 基础设施文章的高级编辑静物图：[物体或隐喻]。
 
 ```html
 <section style="margin:18px 0 24px;padding:16px;background:#fbf8f3;border:1px solid #e7dfd3;border-radius:4px;">
-  <img src="images/source-shot.jpg" style="display:block;width:100%;height:auto;border-radius:3px;" />
+  <img data-wlp-visual-id="official-evidence" src="images/source-shot.jpg" style="display:block;width:100%;height:auto;border-radius:3px;" />
 </section>
 <p style="margin:-12px 0 24px;text-align:center;font-size:12px;line-height:1.6;color:#999999;">图注：页面截图｜来源：...</p>
 ```

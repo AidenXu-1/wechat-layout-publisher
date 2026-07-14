@@ -73,7 +73,7 @@
 
 ```html
 <section style="margin:0 0 24px;">
-  <img src="images/hero.jpg" style="display:block;width:100%;border-radius:4px;" />
+  <img data-wlp-visual-id="hero" src="images/hero.jpg" style="display:block;width:100%;border-radius:4px;" />
   <p style="margin:10px 0 0;text-align:center;font-size:12px;line-height:1.6;color:#999999;">图注：来源或说明</p>
 </section>
 ```

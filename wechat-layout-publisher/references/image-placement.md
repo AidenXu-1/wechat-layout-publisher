@@ -124,6 +124,7 @@ cd scripts && npx tsx img2base64.ts "<image-url-or-local-path>" --max-kb 980
 ```json
 {
   "runtime": "codex",
+  "content_mode": "preserve",
   "image_generation_capability": "available",
   "image_generation_tool": "imagegen",
   "content_type": "mixed_news_commentary",
@@ -195,6 +196,7 @@ cd scripts && npx tsx img2base64.ts "<image-url-or-local-path>" --max-kb 980
 ```json
 {
   "runtime": "generic-agent",
+  "content_mode": "rewrite",
   "image_generation_capability": "unavailable",
   "generation_capability_notice": "This Agent cannot generate bitmap images. A coded preview is ready for your choice.",
   "visuals": [
@@ -224,7 +226,9 @@ npm run verify-image-plan -- --stage plan --article <source-article> <image-plan
 npm run verify-image-plan -- --stage final --article <source-article> --check-files <image-plan.json>
 ```
 
-最终阶段把 `status` 改为 `ready`、`captured` 或 `attempt_failed`，并补充 `asset_path`、图注、提供方或来源细节和失败原因。`runtime` 不能为空。使用 `--check-files` 时，首张视觉必须是 `2.35:1`；证据图、生成图和用户图必须解析到真实本地 PNG/JPEG，或有效 PNG/JPEG data URI。`coded_visual` 可以使用通过安全检查的本地 SVG 或内联 HTML 组件；它必须自包含，资源引用仅限本地 `#fragment` 或经验证的内嵌 PNG/JPEG data。目录和未验证远程 URL 都不算已捕获素材。最终 `asset_path` 必须对应正文实际使用的图片，发布预检会按内容哈希对账。证据无法截取时，禁止用代码或 Image Gen 伪造。
+最终阶段把 `status` 改为 `ready`、`captured` 或 `attempt_failed`，并补充 `asset_path`、图注、提供方或来源细节。已截取证据还要记录 ISO 时间 `captured_at` 和 `asset_sha256: sha256:<64位哈希>`；真实访问失败记录 `failure_code`（`http_error|access_denied|login_required|network_error|removed|policy_blocked`）、`attempted_at` 和具体原因。`runtime` 不能为空；`content_mode` 必须与开局选择一致。使用 `--check-files` 时，首张视觉必须是 `2.35:1`，证据截图至少 `320×120`；证据图、生成图和用户图必须解析到真实本地 PNG/JPEG 或有效 data URI。`coded_visual` 可以使用通过安全检查的本地 SVG 或内联 HTML 组件，并保持自包含。目录和未验证远程 URL 都不算已捕获素材。证据无法截取时，禁止用代码或 Image Gen 伪造。
+
+正文按 `order` 放置每个视觉，并在实际 `<img>` 上写 `data-wlp-visual-id="计划 id"`；内联 SVG/HTML 写在其最外层节点。每个视觉只标记一次。发布预检会按 ID 和顺序逐项对账，并对所有位图下载真实字节后核对内容哈希，包括已经是微信 URL 的图片。
 
 ## 质量检查
 

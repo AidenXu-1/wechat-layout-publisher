@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
 import sharp from "sharp";
@@ -41,11 +42,13 @@ try {
 const issues = [];
 const warnings = [];
 const contentTypes = new Set(["news_event", "mixed_news_commentary", "product_tool", "opinion", "knowledge", "experience", "narrative"]);
+const contentModes = new Set(["rewrite", "preserve"]);
 const sourceTypes = new Set(["user_asset", "evidence_screenshot", "generated_image", "coded_visual"]);
 const roles = new Set(["hero", "evidence", "explainer", "data", "object", "divider"]);
 const codedKinds = new Set(["process", "relationship", "timeline", "framework", "comparison", "data", "mechanism"]);
 const newsTypes = new Set(["news_event", "mixed_news_commentary"]);
 const headlineRatio = 900 / 383;
+const evidenceFailureCodes = new Set(["http_error", "access_denied", "login_required", "network_error", "removed", "policy_blocked"]);
 
 function nonEmpty(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -132,6 +135,15 @@ async function visualDimensions(assetPath) {
   return undefined;
 }
 
+function rasterBuffer(assetPath) {
+  if (/^data:/i.test(assetPath)) {
+    const match = assetPath.match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/i);
+    return match ? Buffer.from(match[2], "base64") : undefined;
+  }
+  const resolvedPath = resolve(dirname(file), assetPath);
+  return localImageIsValid(resolvedPath) ? readFileSync(resolvedPath) : undefined;
+}
+
 function detectNewsSignals(raw) {
   const text = raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
   const rules = [
@@ -144,6 +156,7 @@ function detectNewsSignals(raw) {
 }
 
 if (!contentTypes.has(plan.content_type)) issues.push(`Unknown content_type: ${String(plan.content_type)}`);
+if (!contentModes.has(plan.content_mode)) issues.push("content_mode must be rewrite or preserve.");
 if (!nonEmpty(plan.runtime)) issues.push("runtime is required so provider checks cannot be bypassed.");
 if (typeof plan.classification_confidence !== "number" || plan.classification_confidence < 0 || plan.classification_confidence > 1) {
   issues.push("classification_confidence must be a number from 0 to 1.");
@@ -162,7 +175,8 @@ if (articleFile) {
   if (!existsSync(articleFile)) issues.push(`Article file not found: ${articleFile}`);
   else {
     const detectedSignals = detectNewsSignals(readFileSync(articleFile, "utf8"));
-    if (detectedSignals.length >= 2 && !newsTypes.has(plan.content_type)) {
+    const strongNewsSignal = detectedSignals.includes("public event action") || detectedSignals.includes("reported quote or response");
+    if ((detectedSignals.length >= 2 || strongNewsSignal) && !newsTypes.has(plan.content_type)) {
       issues.push(`Article looks news-like but content_type=${plan.content_type}. Detected: ${detectedSignals.join(", ")}. Reclassify as news_event or mixed_news_commentary.`);
     }
   }
@@ -187,12 +201,15 @@ for (const [index, asset] of suppliedAssets.entries()) {
 if (!Array.isArray(plan.visuals) || plan.visuals.length === 0) issues.push("visuals must contain at least one planned visual.");
 const visuals = Array.isArray(plan.visuals) ? plan.visuals : [];
 const orders = new Set();
+const visualIds = new Set();
 const referencedAssets = new Set();
 
 for (const [index, visual] of visuals.entries()) {
   const label = `visuals[${index}]`;
   const generatedFallback = visual.source_type === "coded_visual" && visual.fallback_for === "generated_image";
   if (!nonEmpty(visual.id)) issues.push(`${label}.id is required.`);
+  else if (visualIds.has(visual.id)) issues.push(`Duplicate visual id: ${visual.id}`);
+  else visualIds.add(visual.id);
   if (!Number.isInteger(visual.order) || visual.order < 1) issues.push(`${label}.order must be a positive integer.`);
   else if (orders.has(visual.order)) issues.push(`Duplicate visual order: ${visual.order}`);
   else orders.add(visual.order);
@@ -221,7 +238,21 @@ for (const [index, visual] of visuals.entries()) {
     if (!new Set(["official", "primary_social", "reputable_media", "community"]).has(visual.source_tier)) {
       issues.push(`${label}.source_tier must identify the evidence authority.`);
     }
-    if (visual.status === "attempt_failed" && !nonEmpty(visual.failure_reason)) issues.push(`${label}.failure_reason is required.`);
+    if (stage === "final" && visual.status === "captured") {
+      if (!nonEmpty(visual.captured_at) || !Number.isFinite(Date.parse(visual.captured_at))) {
+        issues.push(`${label}.captured_at must record when the source screenshot was taken.`);
+      }
+      if (!/^sha256:[a-f0-9]{64}$/i.test(visual.asset_sha256 || "")) {
+        issues.push(`${label}.asset_sha256 must bind the captured screenshot bytes as sha256:<64-hex>.`);
+      }
+    }
+    if (visual.status === "attempt_failed") {
+      if (!nonEmpty(visual.failure_reason)) issues.push(`${label}.failure_reason is required.`);
+      if (!evidenceFailureCodes.has(visual.failure_code)) issues.push(`${label}.failure_code must use a structured access-failure code.`);
+      if (!nonEmpty(visual.attempted_at) || !Number.isFinite(Date.parse(visual.attempted_at))) {
+        issues.push(`${label}.attempted_at must record when evidence access failed.`);
+      }
+    }
   }
 
   if (visual.source_type === "generated_image") {
@@ -280,6 +311,21 @@ for (const [index, visual] of visuals.entries()) {
       if (!valid) {
         const expected = visual.source_type === "coded_visual" ? "safe PNG/JPEG/SVG/inline-HTML file" : "PNG/JPEG file";
         issues.push(`${label}.asset_path must be an existing ${expected}: ${visual.asset_path}`);
+      }
+    }
+    if (visual.source_type === "evidence_screenshot" && visual.status === "captured") {
+      try {
+        const dimensions = await visualDimensions(visual.asset_path);
+        if (!dimensions || dimensions.width < 320 || dimensions.height < 120) {
+          issues.push(`${label} evidence screenshot is too small to be readable on a phone; require at least 320x120 source pixels.`);
+        }
+        const buffer = rasterBuffer(visual.asset_path);
+        const actualHash = buffer ? `sha256:${createHash("sha256").update(buffer).digest("hex")}` : "";
+        if (!actualHash || actualHash !== visual.asset_sha256) {
+          issues.push(`${label}.asset_sha256 does not match the captured screenshot file.`);
+        }
+      } catch (error) {
+        issues.push(`${label} evidence screenshot could not be inspected: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }

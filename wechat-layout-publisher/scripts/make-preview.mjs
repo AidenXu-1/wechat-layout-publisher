@@ -38,25 +38,26 @@ if (!articleHtml) {
   process.exit(1);
 }
 
-if (copyReady) {
-  const result = spawnSync(
-    process.execPath,
-    [
-      resolve(scriptDir, "verify-copy-ready.mjs"),
-      ...(allowRemote ? ["--allow-remote"] : []),
-      ...(allowDataUri ? ["--allow-data-uri"] : []),
-      inputPath,
-    ],
-    {
+function runVerifier(script, verifierArgs) {
+  const result = spawnSync(process.execPath, [resolve(scriptDir, script), ...verifierArgs], {
     cwd: scriptDir,
     encoding: "utf8",
-    },
-  );
+  });
   if (result.status !== 0) {
     const output = `${result.stdout || ""}${result.stderr || ""}`.trim();
-    console.error(output || "Copy-ready verification failed.");
+    console.error(output || `${script} failed.`);
     process.exit(1);
   }
+}
+
+if (copyReady) {
+  runVerifier("verify-copy-ready.mjs", [
+    ...(allowRemote ? ["--allow-remote"] : []),
+    ...(allowDataUri ? ["--allow-data-uri"] : []),
+    inputPath,
+  ]);
+} else {
+  runVerifier("verify-article.mjs", [inputPath]);
 }
 
 const controls = copyReady
