@@ -1,45 +1,45 @@
-# WeChat Editorial Components
+# 微信公众号编辑组件
 
-Use these components for hand-written article HTML. They are adapted to the 兆基日报 style: white page, warm paper panels, muted brick accents, compact editorial rhythm.
+手写文章 HTML 时使用这些组件。整体适配兆基日报风格：白色页面、暖纸面板、低饱和砖红强调和紧凑的编辑节奏。
 
-All snippets inside the article body must use inline styles only. No `class`, no `id`, no `<style>`, no JavaScript.
+正文内所有片段只能使用内联样式，禁止 `class`、`id`、`<style>` 和 JavaScript。
 
-## Contents
+## 目录
 
-- Tokens and article shell
-- Title, hero, lead, heading, and paragraph
-- Infographic, numeric, screenshot, quote, and step blocks
-- Closing block, inline SVG, and component discipline
+- 设计变量与正文外壳
+- 标题、首图、导语、章节标题和段落
+- 信息图、数字、截图、引用和步骤块
+- 结尾块、内联 SVG 和组件纪律
 
-## Tokens
+## 设计变量
 
-- Text: `#252525`
-- Body: `#333333`
-- Muted: `#8b8b8b`
-- Caption: `#999999`
-- Brick accent: `#d68163`
-- Sage accent: `#8f9b83`
-- Warm panel: `#fbf8f3`
-- Paper panel: `#f8f5ef`
-- Line: `#e7dfd3`
-- Font stack: `-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif`
+- 标题文字：`#252525`
+- 正文：`#333333`
+- 次要文字：`#8b8b8b`
+- 图注：`#999999`
+- 砖红强调：`#d68163`
+- 鼠尾草绿强调：`#8f9b83`
+- 暖色面板：`#fbf8f3`
+- 纸张面板：`#f8f5ef`
+- 边线：`#e7dfd3`
+- 字体栈：`-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif`
 
-## Article Shell
+## 正文外壳
 
 ```html
 <section style="margin:0 auto;padding:22px 20px 34px;max-width:677px;background:#fff;color:#333333;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;font-size:15px;line-height:1.85;letter-spacing:0;">
-  <!-- article -->
+  <!-- 正文 -->
 </section>
 ```
 
-## Title Block
+## 标题区
 
 ```html
 <h1 style="margin:0 0 14px;text-align:center;font-size:22px;line-height:1.35;color:#252525;font-weight:800;">兆基日报｜文章标题</h1>
 <p style="margin:0 0 24px;text-align:center;font-size:13px;line-height:1.7;color:#8b8b8b;">一句克制的副标题</p>
 ```
 
-## Hero Image
+## 首图
 
 ```html
 <section style="margin:0 0 24px;">
@@ -48,7 +48,7 @@ All snippets inside the article body must use inline styles only. No `class`, no
 </section>
 ```
 
-## Lead Paragraph
+## 导语
 
 ```html
 <section style="margin:22px 0 24px;padding:0 0 0 14px;border-left:3px solid #d68163;">
@@ -56,7 +56,7 @@ All snippets inside the article body must use inline styles only. No `class`, no
 </section>
 ```
 
-## Section Heading
+## 章节标题
 
 ```html
 <section style="margin:28px 0 12px;">
@@ -65,25 +65,25 @@ All snippets inside the article body must use inline styles only. No `class`, no
 </section>
 ```
 
-## Paragraph
+## 正文段落
 
 ```html
 <p style="margin:0 0 16px;font-size:15px;line-height:1.85;color:#333333;">正文段落。需要强调时用 <strong style="font-weight:800;color:#252525;">克制加粗</strong>。</p>
 ```
 
-## Warm Infographic Panel
+## 暖色信息图面板
 
 ```html
 <section style="margin:18px 0 24px;padding:22px 20px;background:#fbf8f3;border-radius:4px;">
   <p style="margin:0 0 12px;font-size:17px;line-height:1.45;color:#252525;font-weight:800;">一图速览：关键数字</p>
   <div style="width:54px;height:3px;background:#d68163;border-radius:2px;margin:0 0 18px;"></div>
-  <!-- cards, svg, or table -->
+  <!-- 卡片、SVG 或表格 -->
 </section>
 ```
 
-## Numeric Cards
+## 数字卡片
 
-Use when there are 3-6 comparable metrics.
+适用于 3 至 6 个可比较指标。
 
 ```html
 <section style="margin:0;">
@@ -95,9 +95,9 @@ Use when there are 3-6 comparable metrics.
 </section>
 ```
 
-## Screenshot Stage
+## 截图舞台
 
-Use for webpage, product UI, document, research, dashboard, or social discussion screenshots.
+适用于网页、产品界面、文档、研究、仪表盘或社交讨论截图。
 
 ```html
 <section style="margin:18px 0 24px;padding:16px;background:#fbf8f3;border:1px solid #e7dfd3;border-radius:4px;">
@@ -106,7 +106,7 @@ Use for webpage, product UI, document, research, dashboard, or social discussion
 <p style="margin:-12px 0 24px;text-align:center;font-size:12px;line-height:1.6;color:#999999;">图注：页面截图｜来源：...</p>
 ```
 
-## Quote Block
+## 引用块
 
 ```html
 <blockquote style="margin:18px 0 24px;padding:18px 18px;background:#fbf8f3;border-left:3px solid #d68163;border-radius:4px;">
@@ -115,7 +115,7 @@ Use for webpage, product UI, document, research, dashboard, or social discussion
 </blockquote>
 ```
 
-## Step Cards
+## 步骤卡片
 
 ```html
 <section style="margin:16px 0 24px;">
@@ -125,18 +125,20 @@ Use for webpage, product UI, document, research, dashboard, or social discussion
 </section>
 ```
 
-## Closing Block
+## 结尾块
+
+只有标题能概括文章真实结论时才使用。否则直接用最后一段收束。除非源文明确使用，禁止自动添加 `写在最后`、`总结`、`结语` 等泛标题。
 
 ```html
 <section style="margin:28px 0 0;padding:20px 18px;background:#252525;border-radius:4px;">
-  <p style="margin:0 0 10px;font-size:17px;line-height:1.45;color:#ffffff;font-weight:800;">写在最后</p>
-  <p style="margin:0;font-size:15px;line-height:1.8;color:rgba(255,255,255,0.78);">收束全文的一段话。</p>
+  <p style="margin:0 0 10px;font-size:17px;line-height:1.45;color:#ffffff;font-weight:800;">真实结论标题（可选）</p>
+  <p style="margin:0;font-size:15px;line-height:1.8;color:rgba(255,255,255,0.78);">用文章的真实判断收束全文。</p>
 </section>
 ```
 
-## Inline SVG Infographics
+## 内联 SVG 信息图
 
-Prefer SVG for timelines, comparisons, flywheels, pipelines, matrices, and numeric summaries. Keep text large enough for mobile. Use `viewBox="0 0 637 H"` when the visual fills the article width.
+时间线、比较、飞轮、管线、矩阵和数字总览优先使用 SVG。文字在手机上也要足够大。视觉占满正文宽度时，使用 `viewBox="0 0 637 H"`。
 
 ```html
 <section style="margin:18px 0 24px;padding:22px 20px;background:#fbf8f3;border-radius:4px;">
@@ -154,10 +156,10 @@ Prefer SVG for timelines, comparisons, flywheels, pipelines, matrices, and numer
 </section>
 ```
 
-## Component Discipline
+## 组件纪律
 
-- Use 3-5 component types per article, not every component.
-- Deep/dark blocks should be rare: opening emphasis or final close only.
-- Warm panels may contain cards; do not wrap every paragraph in cards.
-- Do not use pill-heavy tags unless tags are actual content.
-- Use SVG or tables for structure before asking an image model to "draw a diagram".
+- 每篇文章使用 3 至 5 种组件，不要把所有组件都塞进去。
+- 深色块只在开头强调或结尾收束时少量使用。
+- 暖色面板可以容纳卡片，禁止把每个段落都包装成卡片。
+- 标签确实是内容时才能使用胶囊标签。
+- 结构表达优先用 SVG 或表格，再考虑让图片模型“画图表”。

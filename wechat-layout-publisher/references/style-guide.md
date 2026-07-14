@@ -1,75 +1,75 @@
-# 兆基日报 Style Guide
+# 兆基日报视觉规范
 
-Use this guide to create a restrained WeChat editorial layout similar to the provided reference image.
+用本规范制作克制、接近参考图气质的微信公众号编辑排版。
 
-## Contents
+## 目录
 
-- Visual DNA, typography, layout, and density
-- Core inline-HTML snippets
-- Final style rules
+- 视觉基因、字体、布局与密度
+- 核心内联 HTML 片段
+- 最终风格规则
 
-## Visual DNA
+## 视觉基因
 
-- **Page feel**: white editorial page, quiet magazine pacing, generous vertical rhythm.
-- **Content width**: article body max width around `677px`; mobile preview width around `375px`.
-- **Tone**: calm, analytical, precise. Avoid marketing-card density and decorative gradients.
-- **Primary accent**: muted brick red `#d68163`.
-- **Secondary accent**: muted sage `#8f9b83`.
-- **Text**: near-black `#252525`; secondary gray `#8b8b8b`; captions `#999999`.
-- **Warm panels**: paper beige `#f8f5ef` or `#fbf8f3`.
-- **Borders**: soft warm gray `#e7dfd3`.
-- **Radius**: small, usually `3px` to `6px`; avoid pill-heavy UI.
+- **页面气质**：白色编辑页，安静的杂志节奏，充足的纵向呼吸感。
+- **正文宽度**：文章最大宽度约 `677px`；移动端预览约 `375px`。
+- **语气**：平静、理性、准确。避免营销卡片堆叠和装饰性渐变。
+- **主强调色**：低饱和砖红 `#d68163`。
+- **辅助色**：低饱和鼠尾草绿 `#8f9b83`。
+- **文字**：近黑 `#252525`；次要灰 `#8b8b8b`；图注 `#999999`。
+- **暖色面板**：纸张米色 `#f8f5ef` 或 `#fbf8f3`。
+- **边框**：柔和暖灰 `#e7dfd3`。
+- **圆角**：通常 `3px` 至 `6px`，避免大量胶囊形界面元素。
 
-## Typography
+## 字体
 
-- Font stack: `-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif`
-- Title: `22px`, `font-weight:800`, centered, line-height `1.35`.
-- Subtitle: `13px`, gray, centered, line-height `1.7`.
-- Body: `15px`, line-height `1.85`, color `#333333`.
-- Section title: `18px`, `font-weight:800`, line-height `1.45`.
-- Caption: `12px`, gray, centered.
-- Letter spacing: keep at `0`; do not use negative spacing.
+- 字体栈：`-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif`
+- 标题：`22px`、`font-weight:800`、居中、行高 `1.35`。
+- 副标题：`13px`、灰色、居中、行高 `1.7`。
+- 正文：`15px`、行高 `1.85`、颜色 `#333333`。
+- 章节标题：`18px`、`font-weight:800`、行高 `1.45`。
+- 图注：`12px`、灰色、居中。
+- 字间距：保持 `0`，禁止负字距。
 
-## Layout Pattern
+## 布局顺序
 
-Use this sequence for most articles:
+大多数文章使用以下顺序：
 
-1. Centered title.
-2. Centered subtitle.
-3. Hero image or warm editorial visual.
-4. Centered image caption.
-5. Lead paragraph with a left brick rule.
-6. Key infographic or numeric overview.
-7. Numbered sections with a short brick underline.
-8. Section images placed after the first explanatory paragraph.
-9. Closing note or summary.
+1. 居中主标题。
+2. 居中副标题。
+3. 首图或暖色编辑视觉。
+4. 居中图注。
+5. 带砖红左侧线的导语。
+6. 关键信息图或数字总览。
+7. 编号章节与短砖红下划线。
+8. 章节图片放在第一段解释文字之后。
+9. 真实结论或收束段。
 
-## Density Rules
+## 密度规则
 
-- Build for scan rhythm, not source-document completeness.
-- Prefer 3-5 reading units. Each unit should carry one main idea.
-- Keep each section to 1-3 short paragraphs before the next visual, card group, or callout.
-- If there are 5+ sibling points, render them as cards, a table, or an SVG overview instead of separate dense sections.
-- Put the strongest sentence in a lead callout or dark closing block; do not bold too many lines inside normal paragraphs.
+- 为扫读节奏服务，不追求把源文每一点都视觉化。
+- 优先规划 3 至 5 个阅读单元，每个单元一个主旨。
+- 每个单元写 1 至 3 个短段落，再进入下一张图、卡片组或提示块。
+- 同级要点超过 5 个时，改用卡片、表格或 SVG 总览，避免拆成多个密集章节。
+- 最强的一句话放在导语或深色结尾块，普通段落不要到处加粗。
 
-## Core Snippets
+## 核心片段
 
-### Article Shell
+### 正文外壳
 
 ```html
 <section style="margin:0 auto;padding:22px 20px 34px;max-width:677px;background:#fff;color:#333333;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;font-size:15px;line-height:1.85;letter-spacing:0;">
-  <!-- article -->
+  <!-- 正文 -->
 </section>
 ```
 
-### Title Block
+### 标题区
 
 ```html
 <h1 style="margin:0 0 16px;text-align:center;font-size:22px;line-height:1.35;color:#252525;font-weight:800;">兆基日报｜文章标题</h1>
 <p style="margin:0 0 24px;text-align:center;font-size:13px;line-height:1.7;color:#8b8b8b;">一句克制的副标题</p>
 ```
 
-### Image Block With Caption
+### 图片与图注
 
 ```html
 <section style="margin:0 0 24px;">
@@ -78,7 +78,7 @@ Use this sequence for most articles:
 </section>
 ```
 
-### Lead Paragraph
+### 导语
 
 ```html
 <section style="margin:22px 0 24px;padding:0 0 0 14px;border-left:3px solid #d68163;">
@@ -86,7 +86,7 @@ Use this sequence for most articles:
 </section>
 ```
 
-### Section Heading
+### 章节标题
 
 ```html
 <section style="margin:28px 0 12px;">
@@ -95,17 +95,17 @@ Use this sequence for most articles:
 </section>
 ```
 
-### Warm Infographic Panel
+### 暖色信息图面板
 
 ```html
 <section style="margin:18px 0 24px;padding:22px 20px;background:#fbf8f3;border-radius:4px;">
   <p style="margin:0 0 14px;font-size:17px;line-height:1.45;color:#252525;font-weight:800;">一图速览：关键数字</p>
   <div style="width:54px;height:3px;background:#d68163;border-radius:2px;margin:0 0 18px;"></div>
-  <!-- cards, svg, table, or image -->
+  <!-- 卡片、SVG、表格或图片 -->
 </section>
 ```
 
-### Numeric Cards
+### 数字卡片
 
 ```html
 <section style="margin:0;">
@@ -117,9 +117,9 @@ Use this sequence for most articles:
 </section>
 ```
 
-### Timeline Infographic
+### 时间线信息图
 
-Use inline SVG for clean timelines. Keep text large enough for mobile.
+时间线优先使用内联 SVG，文字在手机上也要足够大。
 
 ```html
 <section style="margin:18px 0 24px;padding:22px 20px;background:#fbf8f3;border-radius:4px;">
@@ -137,14 +137,14 @@ Use inline SVG for clean timelines. Keep text large enough for mobile.
 </section>
 ```
 
-## Style Rules
+## 风格规则
 
-- Prefer real editorial images, soft paper illustrations, clean screenshots, and simple data diagrams.
-- Hero images must pass the full gate in `visual-quality.md`: clear hierarchy, generous negative space, restrained palette, no clutter, no visible text artifacts, safe crop, and an obvious connection to the article's central metaphor.
-- For generated hero prompts, ask for premium magazine editorial illustration, warm paper texture, muted brick and sage accents, no text, no letters, no logo, no watermark, no fake UI, and no sci-fi neon.
-- Treat screenshots as evidence blocks: crop to the meaningful subject, keep text readable, stage on warm paper or light gray, and avoid perspective mockups unless explicitly requested.
-- Do not use purple-blue gradients, decorative orbs, oversized hero cards, or dark-heavy SaaS styling.
-- Avoid nested cards. A warm panel may contain cards, but do not put a decorative card around the entire article.
-- Keep captions factual and short.
-- Use one accent color per visual block; brick red is the default.
-- If the article is a daily note, use `兆基日报｜标题`; otherwise keep the user's title.
+- 优先使用真实编辑图片、柔和纸感插图、干净截图和简单数据图。
+- 首图必须通过 `visual-quality.md` 的完整闸门：层级清楚、留白充足、色彩克制、没有杂乱与文字瑕疵、裁切安全，并与文章中心隐喻明显相关。
+- 生成首图提示词应包含：高质量杂志编辑插图、暖纸质感、低饱和砖红与鼠尾草绿、无文字、无字母、无标志、无水印、无伪界面、无科幻霓虹。
+- 截图作为证据块处理：裁到有意义的主体，保持文字可读，用暖纸色或浅灰承托；除非用户明确要求，避免透视样机。
+- 禁止紫蓝渐变、装饰光球、超大首屏卡片和深色重度 SaaS 风格。
+- 避免卡片套卡片。暖色面板可以容纳卡片，但不要再用装饰卡框包住整篇文章。
+- 图注简短、客观。
+- 每个视觉块只用一个强调色，默认砖红。
+- 日报类文章使用 `兆基日报｜标题`，其他文章保留用户标题。

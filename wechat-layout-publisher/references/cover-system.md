@@ -1,88 +1,88 @@
-# WeChat Cover System
+# 微信公众号封面系统
 
-Use this when the user asks for a WeChat Official Account cover, asks to publish to the draft box, or wants a complete article package.
+用户要求公众号封面、写入草稿箱或完整文章包时，使用本系统。
 
-## Contents
+## 目录
 
-- Cover outputs and title strategy
-- Source selection and 2.35:1 layout patterns
-- HTML constraints and export options
-- Naming and QA
+- 封面输出与标题策略
+- 素材选择与 2.35:1 构图
+- HTML 约束与导出方式
+- 命名与质量检查
 
-The default cover deliverable is the `2.35:1` WeChat headline cover. The `1:1` square cover is optional and should be created only when it has a real publishing use.
+默认交付 `2.35:1` 公众号头条封面。`1:1` 方形封面仅在有真实发布用途时制作。
 
-Important API boundary: the current `draft/add` publishing path uses one `thumb_media_id` for the article cover. It does not upload both `2.35:1` and `1:1` covers as separate fields. When publishing through this Skill, pass the `2.35:1` headline cover as the cover image.
+区分两个成品：正文首图位于 H1 与副标题之后，采用 `2.35:1` 无内嵌标题视觉底图；公众号头条封面是 `900 x 383` 平台封面，在同一底图或视觉系统上用可控排版层合成真实标题。禁止再用“首图/封面”指代同一个未定义文件。
 
-## Cover Outputs
+API 边界：当前 `draft/add` 流程只通过一个 `thumb_media_id` 传入文章封面，不会把 `2.35:1` 和 `1:1` 作为两个字段上传。通过本 Skill 写草稿时，封面参数使用 `2.35:1` 头条封面。
 
-### 2.35:1 Headline Cover
+## 封面输出
 
-Default:
+### 2.35:1 头条封面
 
-- Size: `900 x 383`
-- High-resolution equivalent: `2350 x 1000`
-- Ratio: `2.35:1`
-- Use: main article cover / headline cover image
-- Priority: this is the primary cover for this Skill.
+默认规格：
 
-Purpose:
+- 尺寸：`900 x 383`
+- 比例：`2.35:1`
+- 用途：主文章封面 / 头条封面
+- 优先级：本 Skill 的主要封面成品
 
-- Show the full or near-full article title.
-- Establish the article's editorial metaphor, object, evidence, or tension.
-- Give the user a strong first impression in the Official Account feed and article header.
+作用：
 
-Composition rules:
+- 展示完整或接近完整的文章标题。
+- 建立文章的编辑隐喻、主体、证据或张力。
+- 在公众号信息流和文章头部形成有力的第一印象。
 
-- Use one strong visual idea, not a collage of unrelated symbols.
-- Keep title readable in a clear safe band, usually center-left or balanced center.
-- Use the 兆基日报 palette: warm paper, ink, muted brick, sage, refined neutrals.
-- Avoid fake text inside generated images. Put all real title text in HTML/SVG, not inside the generated bitmap.
-- Keep enough center mass. A 2.35:1 cover with a tiny title and small image reads empty.
+构图规则：
 
-### Optional 1:1 Square Cover
+- 只保留一个强视觉想法，禁止拼贴无关符号。
+- 标题放在清晰安全区，通常位于左侧、左中或平衡的中央。
+- 使用兆基日报配色：暖纸、墨色、低饱和砖红、鼠尾草绿和精致中性色。
+- 生成模型只负责无文字视觉底图。真实标题由可控 HTML/SVG/Canvas 或脚本文字层合成。
+- 标题必须进入构图本身的安静区域。禁止白色贴纸框、海报标签或整块黑色遮罩。
+- 保持足够的视觉重心。超宽封面若只有很小的标题和图像，会显得空洞。
 
-Default:
+### 可选 1:1 方形封面
 
-- Size: `1080 x 1080`
-- Ratio: `1:1`
-- Use only when needed.
+默认规格：
 
-When 1:1 is useful:
+- 尺寸：`1080 x 1080`
+- 比例：`1:1`
+- 只在实际需要时制作。
 
-- The article is part of a multi-article/multi-card package where secondary entries use square thumbnails.
-- The platform or sharing surface crops the main cover into a square preview.
-- The user wants a reusable square social cover for Moments, chat sharing, archive cards, or cross-platform reuse.
-- The cover set needs a compact thumbnail that still reads when small.
-- The user will manually use or upload a square asset outside this Skill's one-click draft API flow.
+适用情况：
 
-When to skip 1:1:
+- 多文章或多卡片组合中，次要条目需要方形缩略图。
+- 平台或分享入口会把主封面裁成方形预览。
+- 用户需要用于朋友圈、聊天分享、归档卡片或跨平台复用的方形社交封面。
+- 封面组合需要在小尺寸下仍可阅读的紧凑缩略图。
+- 用户会在本 Skill 的一键草稿 API 流程外手动使用或上传方图。
 
-- The user only needs the main single-article cover.
-- The user is publishing through this Skill's `draft/add` flow and has not asked for extra reusable cover assets.
-- The article title is long and the square would only become a cramped text block.
-- No downstream surface will use a square thumbnail.
+跳过情况：
 
-Default square style:
+- 用户只需要单篇文章主封面。
+- 用户通过本 Skill 的 `draft/add` 发布，且未要求额外可复用封面。
+- 标题很长，方图只会变成拥挤文字块。
+- 没有任何下游入口需要方形缩略图。
 
-- Short title only.
-- Big centered type.
-- Usually no image.
-- No subtitle unless disambiguation is necessary.
-- Keep the same palette as the 2.35:1 cover.
+方图默认风格：
 
-## Title Strategy
+- 只放短标题。
+- 居中大字。
+- 通常不放图片。
+- 只有短标题存在歧义时才加副标题。
+- 与 `2.35:1` 封面使用同一套配色。
 
-Write the long title for the `2.35:1` headline cover first.
+## 标题策略
 
-For `1:1`, derive a separate short title:
+先写 `2.35:1` 头条封面的长标题，再为 `1:1` 单独压缩：
 
-1. Identify the core verb.
-2. Identify the core object.
-3. Compress to 4-10 Chinese characters when possible.
-4. Keep only necessary English terms such as AI, Mac, iOS, MCP.
-5. Add a tiny subtitle only if the short title becomes ambiguous.
+1. 找出核心动词。
+2. 找出核心对象。
+3. 尽量压到 4 至 10 个汉字。
+4. 只保留 AI、Mac、iOS、MCP 等必要英文词。
+5. 只有短标题产生歧义时才加很小的副标题。
 
-Examples:
+示例：
 
 ```text
 2.35:1: 开源了一个 Skill，让 AI 接管你屏幕边那张便签纸
@@ -94,70 +94,70 @@ Examples:
 1:1: 装备减重 3.4kg
 ```
 
-Do not squeeze the full 2.35:1 title into the square. A square cover needs its own sentence.
+禁止把 2.35:1 的完整标题硬塞进方图，方形封面需要自己的短句。
 
-## Source Selection
+## 素材选择
 
-Choose the cover visual source by meaning:
+按语义选择封面视觉：
 
-- Real product/person/place/page/event -> official image, user image, or clean screenshot.
-- Article depends on a public page or source -> screenshot/evidence-based cover can work.
-- Abstract essay or conceptual AI topic -> generated editorial metaphor image.
-- Structure-heavy analysis -> cover can use a restrained SVG/HTML composition instead of a bitmap.
+- 真实产品、人物、地点、页面或事件：官方图片、用户图片或干净截图。
+- 文章依赖公共页面或来源：可以使用基于证据的截图封面。
+- 抽象观点或概念型 AI 主题：生成具有编辑质感的隐喻图。
+- 结构密集的分析：可以使用克制的 SVG/HTML 构图代替位图。
 
-For generated cover imagery, use `visual-quality.md`. Generate image content only. Add real title text in the cover HTML/SVG layer.
+生成封面图时遵循 `visual-quality.md`。模型只生成画面内容，真实标题在封面 HTML/SVG 层中添加。
 
-## 2.35:1 Layout Patterns
+## 2.35:1 构图模式
 
-### Editorial Metaphor
+### 编辑隐喻
 
-- Left or center-left title block.
-- Right-side generated/photo object with negative space.
-- Warm paper base and one brick accent line.
+- 标题位于左侧或左中。
+- 生成或拍摄的主体位于右侧，并保留负空间。
+- 暖纸底色，只用一条砖红强调线。
 
-### Evidence Cover
+### 证据封面
 
-- Short title plus a staged screenshot or source page crop.
-- Screenshot must remain readable enough to identify the source.
-- Caption/source can stay outside the cover if the cover would become cluttered.
+- 短标题加经过整理的截图或来源页面裁切。
+- 截图至少要能识别来源。
+- 图注或来源会让封面拥挤时，放到封面外说明。
 
-### Data/Structure Cover
+### 数据 / 结构封面
 
-- Big title plus one restrained visual system: timeline, number row, comparison axis, or mechanism diagram.
-- Do not overfill the cover with tiny labels.
+- 大标题加一个克制的视觉系统：时间线、数字行、比较轴或机制图。
+- 禁止塞入大量小标签。
 
-## Cover HTML Constraints
+## 封面 HTML 约束
 
-The cover can be built as a standalone HTML file for screenshot export. Unlike article body HTML, cover HTML may use CSS classes and `<style>` because it is rendered to PNG before upload.
+封面可制作成独立 HTML，再截图导出 PNG。与正文不同，封面 HTML 在导出前可以使用 CSS 类和 `<style>`。
 
-Still keep the design simple:
+设计仍需保持简单：
 
-- Stable canvas size.
-- No decorative blobs/orbs.
-- No random gradients.
-- No title over busy image regions.
-- All text should be readable when previewed at small size.
+- 画布尺寸稳定。
+- 不用装饰性光球。
+- 不用随机渐变。
+- 标题不压在繁忙画面上。
+- 缩小预览时，全部文字仍可读。
 
-## Export Options
+## 导出方式
 
-Preferred lightweight path:
+推荐轻量流程：
 
-1. Build a standalone `cover.html`.
-2. Open it in Chrome/Edge.
-3. Export the cover node to PNG using browser screenshot tooling or headless Chrome.
+1. 制作独立 `cover.html`。
+2. 用 Chrome/Edge 打开。
+3. 使用浏览器截图能力或无头 Chrome 把封面节点导出为 PNG。
 
-Optional heavy path:
+可选重型流程：
 
-- Use Playwright when the project accepts the extra browser automation dependency.
-- Playwright makes automated PNG export and visual checks easier, but browser binaries can add hundreds of MB to a user's machine cache.
+- 只有项目接受额外浏览器自动化依赖时才使用 Playwright。
+- Playwright 便于自动导出 PNG 和视觉检查，但浏览器二进制可能占用数百 MB 缓存。
 
-Do not add Playwright as a required dependency unless the user explicitly wants automated cover rendering and accepts the heavier setup.
+除非用户明确要求自动化封面渲染并接受较重安装，否则不得把 Playwright 设为必需依赖。
 
-For the script fallback, `publish.ts --gen-cover` uses the OpenAI landscape size and then crops it with the lightweight image pipeline to an exact `900 x 383` JPEG. Keep the subject inside the central horizontal band, and pass `--cover-prompt` when semantic direction is available.
+脚本备用流程中，`publish.ts --gen-cover` 会请求主体靠右、左侧留安静标题区的无文字底图，把它准确裁成 `900 x 383`，再通过可控 SVG 层合成真实标题。有语义方向时传入 `--cover-prompt`。
 
-## Naming
+## 文件命名
 
-Recommended files:
+推荐：
 
 ```text
 cover/wechat-headline-cover.html
@@ -167,7 +167,7 @@ cover/wechat-1x1-cover.png
 cover/wechat-cover-pair-preview.html
 ```
 
-For normal article publishing, pass the `2.35:1` PNG to:
+普通文章发布时，把 `2.35:1` PNG 传给：
 
 ```bash
 cd scripts
@@ -175,13 +175,14 @@ npx tsx publish.ts <article.html> --image-plan <image-plan.json> --source-articl
   --title "标题" --cover <cover/wechat-headline-cover.png>
 ```
 
-If a `1:1` cover is generated, report it as an optional extra asset. Do not imply that it was uploaded through `draft/add` unless the publishing script is explicitly extended in the future.
+实际生成 `1:1` 时，将其报告为可选附加素材。除非未来明确扩展发布脚本，否则禁止暗示它已通过 `draft/add` 上传。
 
-## QA
+## 质量检查
 
-- 2.35:1 headline cover is the primary quality gate.
-- Title is readable at thumbnail size.
-- Cover does not contain AI-generated text artifacts.
-- Visual metaphor/source matches the article.
-- If a 1:1 cover is generated, it uses a separately shortened title.
-- Pair uses the same palette and feels related, but the 1:1 is not a blind crop.
+- `2.35:1` 头条封面是主要质量闸门。
+- 小尺寸缩略图下标题仍可读。
+- 标题位于安静构图区，没有贴纸框或大面积深色遮罩。
+- 封面没有 AI 生成的乱码文字。
+- 视觉隐喻或来源与文章匹配。
+- 生成 `1:1` 时，使用单独压缩的标题。
+- 两张封面配色一致且属于同一视觉系统，方图不是盲裁。

@@ -1,60 +1,60 @@
-# WeChat HTML Constraints
+# 微信正文 HTML 约束
 
-Inside the article body, WeChat keeps only a limited HTML and CSS subset. Build defensively.
+微信公众号正文只保留有限的 HTML 与 CSS 子集。制作时采用保守策略。
 
-## Required
+## 必须遵守
 
-- Put all article styles inline with `style=""`.
-- Use semantic tags like `section`, `p`, `h1`, `h2`, `strong`, `span`, `img`, `blockquote`, `table`, `svg`.
-- Keep article images under about 1 MB when possible.
-- Use local preview shell JavaScript only outside `ARTICLE HTML START` and `ARTICLE HTML END`.
+- 正文样式全部写在 `style=""` 中。
+- 使用 `section`、`p`、`h1`、`h2`、`strong`、`span`、`img`、`blockquote`、`table`、`svg` 等语义标签。
+- 文章图片尽量控制在约 1 MB 内。
+- 本地预览外壳的 JavaScript 必须放在 `ARTICLE HTML START` 和 `ARTICLE HTML END` 之外。
 
-## Avoid Inside Article Body
+## 正文中禁止或避免
 
-- No `<style>` tags.
-- No `<script>` tags.
-- No `class` or `id` attributes.
-- No external stylesheets.
-- No CSS animation, transforms, fixed positioning, or media queries.
-- Avoid layouts that depend on `gap`, `position`, or `float`.
+- 禁止 `<style>` 标签。
+- 禁止 `<script>` 标签。
+- 禁止 `class` 和 `id` 属性。
+- 禁止外部样式表。
+- 禁止 CSS 动画、transform、固定定位和媒体查询。
+- 避免依赖 `gap`、`position` 或 `float` 的布局。
 
-## Image Notes
+## 图片说明
 
-- Local preview mode can use local paths.
-- WeChat copy-ready mode cannot use local relative paths or `file://` paths. Those images may render in the browser preview but disappear after pasting into the Official Account editor.
-- For copy-ready delivery, image `src` values should be WeChat-hosted URLs with the exact host `mmbiz.qpic.cn` or `mmbiz.qlogo.cn`. A normal remote `http(s)` URL or valid PNG/JPEG data URI is acceptable only after manual paste verification in the target editor.
-- Draft API publishing uses `scripts/publish.ts` to upload local, remote, or base64 article images to WeChat and replace them with WeChat-hosted URLs.
-- For network images, prefer downloading and embedding or saving locally so the preview does not break.
+- 本地预览可以使用本地路径。
+- 微信正式可复制版不能使用本地相对路径或 `file://` 路径。这些图在浏览器里可能正常，粘贴进公众号编辑器后会消失。
+- 正式可复制版的图片 `src` 应使用准确主机名为 `mmbiz.qpic.cn` 或 `mmbiz.qlogo.cn` 的微信托管 URL。普通远程 `http(s)` URL 或有效 PNG/JPEG data URI，只有在目标编辑器完成真实粘贴验证后才可接受。
+- 通过草稿 API 发布时，`scripts/publish.ts` 会把本地、远程或 base64 正文图上传到微信，并改写成微信托管 URL。
+- 网络图片优先下载后嵌入或保存到本地，避免预览失效。
 
-## Final Body Check
+## 最终正文检查
 
-Before delivery, grep the article body for:
+交付前搜索正文：
 
 ```bash
 rg -n "<style|<script|class=|id=" <output.html>
 ```
 
-Matches in the preview shell are acceptable. Matches between the article markers must be removed.
+预览外壳中的匹配可以保留，文章标记之间的匹配必须删除。
 
-Prefer the bundled verifier:
+优先使用内置验证器：
 
 ```bash
 cd scripts
 npm run verify-article -- <preview-or-fragment.html>
 ```
 
-It extracts the body between `ARTICLE HTML START` and `ARTICLE HTML END` when markers exist, then checks for common WeChat-breaking tags and attributes.
+文件有标记时，它只提取 `ARTICLE HTML START` 和 `ARTICLE HTML END` 之间的正文，再检查常见的微信不兼容标签与属性。
 
-For paste-ready image delivery, also run:
+正式可复制图片还要运行：
 
 ```bash
 cd scripts
 npm run verify-copy-ready -- <preview-or-fragment.html>
 ```
 
-This fails if any image still uses a local path, `file://` style source, or normal remote URL that is not WeChat-hosted.
+只要存在本地路径、`file://` 来源或非微信托管的普通远程 URL，就会失败。
 
-Use the escape hatch only after a manual paste test:
+只有真实粘贴测试通过后，才可开启例外：
 
 ```bash
 cd scripts
@@ -62,7 +62,7 @@ npm run verify-copy-ready -- --allow-remote <preview-or-fragment.html>
 npm run verify-copy-ready -- --allow-data-uri <preview-or-fragment.html>
 ```
 
-After that real paste test is documented, pass the same explicit override when creating the preview:
+记录真实粘贴测试后，生成预览时使用相同的显式例外：
 
 ```bash
 node scripts/make-preview.mjs --copy-ready --allow-remote <fragment.html> <preview.html>

@@ -1,124 +1,125 @@
-# Image Placement And Source Policy
+# 配图位置与来源策略
 
-The goal is semantic illustration: every image should explain, prove, compare, or set tone. Do not choose image types mechanically. First understand what the paragraph is doing, then choose the visual source and placement.
+目标是语义配图：每张图都应承担解释、证明、比较或建立氛围的职责。禁止机械选择图片类型。先理解附近段落在做什么，再决定来源和位置。
 
-## Contents
+## 目录
 
-- Semantic routing and visual roles
-- Placement and source selection
-- Image plan, quality checks, and captions
+- 语义路由与视觉角色
+- 图片位置与来源选择
+- 图片计划、质量检查和图注
 
-## Semantic Routing
+## 语义路由
 
-Do not start by choosing a drawing tool. First classify what the nearby paragraph needs the reader to do:
+不要先选绘图工具。先判断附近段落希望读者完成什么：
 
-- **See something the user supplied** -> `user_asset`.
-- **Believe that a public event, quote, post, page, or product state exists** -> `evidence_screenshot`.
-- **Feel or grasp an abstract metaphor, mood, conflict, or conceptual mapping** -> `generated_image`.
-- **Understand a process, relationship, timeline, framework, comparison, dataset, or mechanism** -> `coded_visual`.
-- **No real semantic need for an image** -> skip the image and improve spacing, heading, or callout instead.
+- **看见用户提供的东西**：`user_asset`。
+- **相信公共事件、引语、帖子、页面或产品状态确实存在**：`evidence_screenshot`。
+- **感受或理解抽象隐喻、氛围、冲突或概念映射**：`generated_image`。
+- **理解流程、关系、时间线、框架、比较、数据集或机制**：`coded_visual`。
+- **没有真实语义配图需求**：不放图，改进留白、标题或提示块。
 
-After routing, apply `visual-quality.md`. A correct source type can still fail if the crop is unsafe, the screenshot is unreadable, or the generated image looks generic.
+完成路由后，再执行 `visual-quality.md`。来源类型选对了，也可能因裁切不安全、截图不可读或生成图过于通用而失败。
 
-## Visual Role Decision
+## 视觉角色判断
 
-For each proposed image, assign one role:
+每张候选图片只分配一个角色：
 
-| Role | Use When | Preferred Source |
-|------|----------|------------------|
-| Hero metaphor | Sets the article-level tension or mood | Generated image, real photo, or object image |
-| Evidence | Proves a quote, page, UI state, or claim | Web screenshot, official image, user-provided image |
-| Explainer | Clarifies a structure, mechanism, timeline, process, or comparison | SVG, HTML infographic, diagram |
-| Object/photo well | Shows a real product, person, place, or scene | User image, official image, web image |
-| Data overview | Compresses numbers or sibling facts | SVG, cards, table |
-| Breathing divider | Gives visual rest without adding a new claim | Rare generated/editorial image |
+| 角色 | 适用情况 | 优先来源 |
+|------|----------|----------|
+| 首图隐喻 | 建立全文张力或氛围 | 生成图、真实照片或实物图 |
+| 证据 | 证明引语、页面、界面状态或主张 | 网络截图、官方图片、用户图片 |
+| 解释图 | 解释结构、机制、时间线、流程或比较 | SVG、HTML 信息图、图表 |
+| 实物/照片 | 展示真实产品、人物、地点或场景 | 用户图片、官方图片、网络图片 |
+| 数据总览 | 压缩数字或并列事实 | SVG、卡片、表格 |
+| 呼吸图 | 不增加新主张，只缓解阅读疲劳 | 极少使用生成图或编辑图 |
 
-If the role is unclear, do not use the image.
+角色说不清时，不使用这张图。
 
-## Placement Rules
+## 放置规则
 
-- **Hero image**: place after title/subtitle. Use for the central metaphor, object, product, person, or scene.
-- **Lead visual**: if the intro contains a thesis with multiple claims, add a compact overview infographic after the lead.
-- **Section visual**: place after the first paragraph of a section, once the reader knows what to look for.
-- **Data visual**: use SVG or HTML-made graphics for numbers, timelines, matrices, processes, and comparisons.
-- **Evidence image**: use screenshots or user-provided images near the claim they support.
-- **External-context screenshot**: use when the article quotes, cites, or materially relies on a public page, research paper, information website, social network, or technical-community discussion. Do not add one just because a topic is public.
-- **News evidence**: if the article is an event/controversy/reporting piece, evidence screenshots are not optional decoration. Use them near the claim they support, or record why capture failed.
-- **Closing image**: optional. Use only if it adds a final synthesis, not decoration.
+- **首图**：放在标题和副标题之后，承载中心隐喻、主体、产品、人物或场景。
+- **导语视觉**：导语包含多项主张时，在导语后放紧凑总览图。
+- **章节视觉**：放在章节第一段之后，让读者先知道应该看什么。
+- **数据视觉**：数字、时间线、矩阵、流程和比较使用 SVG 或 HTML 图形。
+- **证据图片**：截图或用户图片靠近它支持的主张。
+- **外部语境截图**：文章引用或实质依赖公共页面、论文、信息网站、社交网络或技术社区讨论时使用；不能因为主题公开就随意加图。
+- **新闻证据**：事件、争议或报道型文章中，证据截图属于必需信任层。靠近对应主张放置；无法截取时记录真实失败原因。
+- **结尾图片**：可选，只有能形成最终综合判断时才使用，禁止纯装饰。
 
-Do not place more than two large images back-to-back. Alternate text, image, caption, and analysis.
+禁止连续放置超过两张大图。文字、图片、图注和分析要交替出现。
 
-For strong images, avoid repeating the same move immediately. After a large hero or photo, let the next unit be text, a compact card group, or a diagram. After a dense screenshot, add explanation before another evidence image.
+强视觉之后不要立即重复同一种动作。大首图或照片后接文字、紧凑卡片组或图表；密集截图后先解释，再放下一张证据图。
 
-## Source Selection
+## 来源选择
 
-Assign exactly one route to every visual. Use this order because it protects user intent and evidence quality.
+每个视觉只能分配一条路线。按以下顺序判断，以保护用户意图和证据质量。
 
-### Route 1: `user_asset`
+### 路线 1：`user_asset`
 
-- Inventory all supplied images and videos before any web search or generation.
-- Use a supplied asset first when it supports the paragraph, even if another image might look more polished.
-- For supplied video, inspect the content and extract a representative still frame. Record the timestamp in `frame_timestamp`; do not use a random opening frame.
-- When `ffmpeg` is available, extract the selected frame with:
+- 任何联网搜索或生成前，先盘点用户提供的全部图片与视频。
+- 用户素材能支持段落时优先使用，即使另一张图片可能更精致。
+- 视频要检查内容并提取代表帧，把时间戳记录到 `frame_timestamp`；禁止使用随机开场画面。
+- 有 `ffmpeg` 时运行：
   ```bash
   cd scripts && npm run extract-video-frame -- <video> --time 00:01:42 --out <frame.jpg>
   ```
-- If `ffmpeg` is unavailable, explain the lightweight dependency and ask for permission to install it or ask the user for a still frame. Do not silently ignore relevant video.
-- Preserve evidentiary context. Crop only to improve readability, and do not remove the UI, surroundings, timestamp, person, product, or action that makes the asset meaningful.
-- A relevant supplied asset may be skipped only with an explicit `override_reason`, such as duplication, unreadable quality, privacy, rights, or semantic mismatch.
+- 没有 `ffmpeg` 时，说明这个轻量依赖并征求安装许可，或请用户提供静帧。禁止默默忽略相关视频。
+- 保留证据语境。只为提高可读性裁切，不能删掉让素材有意义的界面、环境、时间戳、人物、产品或动作。
+- 只有重复、不可读、隐私、版权或语义不匹配等明确 `override_reason`，才可跳过相关用户素材。
 
-### Route 2: `evidence_screenshot`
+### 路线 2：`evidence_screenshot`
 
-- Use when the article reports news, cites a source, quotes a public statement, describes a social reaction, or depends on a real page/interface/document/product state.
-- Source priority: official page or response -> original social post/public thread -> reputable media -> community origin.
-- In Codex, use available browser navigation and screenshot tools to open the source and capture the meaningful region. Use the user's signed-in browser state only when appropriate and authorized.
-- Capture source identity and enough surrounding context to prove what the page is. A tiny decontextualized sentence is weak evidence.
-- Do not screenshot search results when the original page is accessible. Never recreate a post, quote, logo, headline, or interface with code and label it evidence.
-- Record `source_url`, `source_tier`, capture status, asset path, caption, and failure reason when blocked.
-- For news and mixed news commentary, at least one screenshot must be captured before final delivery unless all attempts are explicitly documented as inaccessible.
+- 文章报道新闻、引用来源、转述公开声明、描述社会反应，或依赖真实页面、界面、文档和产品状态时使用。
+- 来源优先级：官方页面或回应，其次原始社交帖子或公开讨论，再次可信媒体，最后社区源头。
+- 在 Codex 中使用可用浏览器导航和截图工具打开来源，截取有意义区域。只有在适当且获授权时才使用用户已登录的浏览器状态。
+- 保留来源身份和足够上下文，证明页面是什么。脱离语境的一小句文字证据很弱。
+- 能访问原始页面时禁止截搜索结果。绝不使用代码重建帖子、引语、标志、标题或界面，再把它称为证据。
+- 记录 `source_url`、`source_tier`、截取状态、素材路径、图注，以及受阻时的失败原因。
+- 新闻与混合新闻评论最终交付前至少截取一张截图；除非全部尝试都明确记录为不可访问。
 
-### Route 3: `generated_image`
+### 路线 3：`generated_image`
 
-- Use for the first editorial image, a conceptual hero, abstract mapping, central metaphor, emotion, conflict, mood, or a scene where bitmap quality materially improves the reading experience.
-- First inspect the current Agent's tools. When image generation is available, every visual assigned `generated_image` must call that actual tool. This applies to body images as well as the hero and cover.
-- In Codex, use Image Gen. In another Agent, use its native image-generation capability and record the real provider in the plan.
-- Do not quietly replace an Image Gen task with SVG/HTML because code is faster. Change the route only when semantic analysis says the visual is actually structural.
-- Use script/API generation when that is the Agent's available image tool or for the explicit automated `publish --gen-cover` path.
-- Derive the prompt from the nearby paragraph: role, reader takeaway, concrete metaphor/subject, mood, palette, intended crop, mobile composition, and exclusions.
-- Generate image content only. No article title, captions, fake UI, fake social post, logo, watermark, or poster layout inside the bitmap.
+- 适用于第一张编辑图、概念首图、抽象映射、中心隐喻、情绪、冲突、氛围，或位图质感能明显提升阅读体验的场景。
+- 先检查当前 Agent 的工具。有图片生成能力时，每个 `generated_image` 都必须调用真实工具，正文图与首图、封面都一样。
+- Codex 使用 Image Gen；其他 Agent 使用其原生图片能力，并在计划中记录真实提供方。
+- 禁止因为代码更快，就把 Image Gen 任务悄悄替换成 SVG/HTML。只有语义分析确认它实际属于结构图时，才能修改路线。
+- 当前 Agent 只有脚本/API 图片生成能力，或明确运行自动化 `publish --gen-cover` 时，可以使用脚本/API。
+- 提示词来自附近段落，并包含：角色、读者所得、具体隐喻或主体、氛围、配色、目标裁切、手机构图和排除项。
+- 只生成画面内容。位图里禁止文章标题、图注、伪界面、伪社交帖子、标志、水印或海报布局。
 
-### No Image-Generation Capability
+### 没有图片生成能力
 
-When the current Agent has no image-generation tool:
+当前 Agent 没有图片生成工具时：
 
-1. Tell the user that the semantically preferred bitmap cannot be produced in the current Agent.
-2. Preserve the complete intended prompt as `desired_generation_prompt`.
-3. Create a tasteful SVG/HTML coded fallback so article layout and preview work can continue.
-4. Mark the actual route as `coded_visual`, with `semantic_kind: editorial_fallback`, `fallback_for: generated_image`, and `user_decision: pending`.
-5. Offer two choices: `accept_current`, or generate the preserved prompt elsewhere and feed the image back for replacement.
-6. Do not call the fallback AI-generated. Do not finish final validation while the decision is pending.
+1. 告知用户当前无法生成语义上更合适的位图。
+2. 把完整目标提示词保存到 `desired_generation_prompt`。
+3. 制作克制的 SVG/HTML 代码替代稿，让排版和预览继续。
+4. 实际路线标记为 `coded_visual`，并使用 `semantic_kind: editorial_fallback`、`fallback_for: generated_image`、`user_decision: pending`。
+5. 给用户两个选择：`accept_current`，或在外部按保留提示词生成图片后返回替换。
+6. 禁止把替代稿称为 AI 生成图。用户选择未解决前不得完成最终验证。
 
-If the user accepts it, keep the coded asset and set `user_decision: accept_current`. If the user returns an externally generated image, replace the visual with `source_type: generated_image`, `provider: external_user_supplied`, and `user_decision: replace_externally`.
+用户接受时，保留代码素材并设置 `user_decision: accept_current`。用户返回外部生成图时，替换为 `source_type: generated_image`、`provider: external_user_supplied`、`user_decision: replace_externally`。
 
-This exception may occupy the hero/first slot because it preserves workflow continuity, but it must remain clearly labeled. It can never replace an `evidence_screenshot`.
+这个例外可以占用首图位置以维持流程，但必须明确标注，且永远不能代替 `evidence_screenshot`。
 
-### Route 4: `coded_visual`
+### 路线 4：`coded_visual`
 
-- Use only for a process, relationship, timeline, framework, comparison, data overview, or mechanism.
-- Prefer SVG/HTML for precise labels, numeric cards, relationship maps, decision trees, pipelines, matrices, and step diagrams.
-- Use article facts as data. Do not invent numbers, nodes, causal arrows, or chronology to make the picture look complete.
-- Do not use coded visuals as the hero/first image, as evidence, or as decorative filler, except for the explicitly labeled no-generation fallback above.
-- A coded timeline can explain what happened after screenshots prove the event; it cannot replace the screenshots.
+- 只用于流程、关系、时间线、框架、比较、数据总览或机制。
+- 精确标签、数字卡、关系图、决策树、管线、矩阵和步骤图优先使用 SVG/HTML。
+- 只能使用文章事实作为数据。禁止为了让图完整而编造数字、节点、因果箭头或时间顺序。
+- `role: data` 或 `semantic_kind: data` 必须填写 `data_sources`，每项使用真实 `http(s)` URL、`sha256:<64位哈希>` 或 `user-provided:<来源说明>`。
+- 禁止把普通代码图用作首图、证据或装饰填充；只有明确标注的无生成能力替代稿例外。
+- 代码时间线可以在截图证明事件之后解释经过，不能代替截图。
 
-For direct external image URLs, use the guarded converter when needed:
+需要处理外部图片直链时，使用受保护转换器：
 
 ```bash
 cd scripts && npx tsx img2base64.ts "<image-url-or-local-path>" --max-kb 980
 ```
 
-## Image Plan Template
+## 图片计划模板
 
-Persist the plan as `image-plan.json`. Minimal example:
+把计划保存为 `image-plan.json`。最小示例：
 
 ```json
 {
@@ -189,7 +190,7 @@ Persist the plan as `image-plan.json`. Minimal example:
 }
 ```
 
-No-generation fallback example:
+无图片生成能力的替代示例：
 
 ```json
 {
@@ -216,35 +217,36 @@ No-generation fallback example:
 }
 ```
 
-Validate before execution and after assets exist:
+制作素材前和素材就绪后分别验证：
 
 ```bash
 npm run verify-image-plan -- --stage plan --article <source-article> <image-plan.json>
 npm run verify-image-plan -- --stage final --article <source-article> --check-files <image-plan.json>
 ```
 
-At final stage, set `status` to `ready`, `captured`, or `attempt_failed`, add `asset_path`, captions, provider/source details, and failure reasons. With `--check-files`, evidence, generated images, and user images must resolve to a real local PNG/JPEG file or valid PNG/JPEG data URI. `coded_visual` may instead use a safety-checked local SVG or inline-HTML component file; it must be self-contained, with resource references limited to local `#fragment` links or validated embedded PNG/JPEG data. A directory or unverified remote URL is never a captured asset. If evidence cannot be captured, do not fake it with code or Image Gen.
+最终阶段把 `status` 改为 `ready`、`captured` 或 `attempt_failed`，并补充 `asset_path`、图注、提供方或来源细节和失败原因。`runtime` 不能为空。使用 `--check-files` 时，首张视觉必须是 `2.35:1`；证据图、生成图和用户图必须解析到真实本地 PNG/JPEG，或有效 PNG/JPEG data URI。`coded_visual` 可以使用通过安全检查的本地 SVG 或内联 HTML 组件；它必须自包含，资源引用仅限本地 `#fragment` 或经验证的内嵌 PNG/JPEG data。目录和未验证远程 URL 都不算已捕获素材。最终 `asset_path` 必须对应正文实际使用的图片，发布预检会按内容哈希对账。证据无法截取时，禁止用代码或 Image Gen 伪造。
 
-## Quality Checks
+## 质量检查
 
-Before finalizing the image plan:
+最终确定图片计划前检查：
 
-- News/event and mixed-news articles have at least one captured evidence screenshot from an official, primary social, reputable media, or community source, unless documented access failures were explicitly allowed.
-- Every relevant supplied image/video is used or has an explicit override reason.
-- Every `generated_image` records the actual available image tool; Codex records Image Gen, including body images after the hero.
-- When image generation is unavailable, every generated-image need has a labeled coded fallback, preserved prompt, user notice, and resolved decision before final delivery.
-- Every ordinary `coded_visual` is structural and is not the first image or evidence. Editorial fallback is the only first-image exception and never counts as evidence.
-- Hero image has one clear focal idea and passes `visual-quality.md`.
-- Screenshots are readable at mobile width.
-- Generated images contain no text artifacts, logos, fake UI, or watermark-like marks.
-- Crops preserve faces, hands, products, UI text, and the claim-supporting context.
-- Every visual alternates well with surrounding text; no large decorative run appears.
-- Captions identify what the reader is seeing and, when relevant, where it came from.
+- 新闻/事件与混合新闻文章至少有一张来自官方、原始社交来源、可信媒体或社区的证据截图；只有明确记录访问失败并获允许时例外。
+- 每个相关用户图片或视频已使用，或有明确跳过原因。
+- 每个 `generated_image` 记录真实可用工具；Codex 记录 Image Gen，包括首图后的正文图。
+- 同一 `section` 出现第二张视觉，或多张图使用相同 `semantic_reason` 时，验证器会发出复审警告；只在职责确实不同的情况下保留。
+- 图片生成不可用时，每个生成图需求都有已标注的代码替代稿、保留提示词、用户通知，并在最终交付前解决用户选择。
+- 每个普通 `coded_visual` 都承担结构职责，不能作为首图或证据。编辑替代稿是唯一首图例外，也永远不算证据。
+- 首图焦点清楚，并通过 `visual-quality.md`。
+- 截图在手机宽度下可读。
+- 生成图无文字瑕疵、标志、伪界面或水印状痕迹。
+- 裁切保留人脸、手、产品、界面文字和支持主张的语境。
+- 图片与附近文字节奏交替，不能连续堆大幅装饰图。
+- 图注说明读者看到什么，必要时说明来源。
 
-## Caption Rules
+## 图注规则
 
-- Captions should answer: what is this, where did it come from, why does it matter.
-- Format: `图注：说明｜来源：...`
-- For generated images: `图注：根据文章语义生成的编辑配图`
-- For user images: `图注：用户提供图片`
-- For web images: include source name and link in the completion note; if the visible caption would be too long, keep it short in the article.
+- 图注回答：这是什么、来自哪里、为什么重要。
+- 格式：`图注：说明｜来源：...`
+- 生成图：`图注：根据文章语义生成的编辑配图`
+- 用户图片：`图注：用户提供图片`
+- 网络图片：正文图注过长时保持简短，在完成回报中提供来源名称与链接。

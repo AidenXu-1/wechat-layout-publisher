@@ -1,133 +1,133 @@
-# Editorial Writing Rules
+# 编辑写作规则
 
-Use this before building the preview. The layout can look polished and still fail if the article reads like a sterile report.
+制作预览前先使用本规则。排版再精致，如果正文像没有温度的报告，文章仍然不成立。
 
-## Contents
+## 目录
 
-- Content type and news evidence gates
-- Opening hook and human voice
-- Paragraph density and depth
+- 内容类型与新闻证据闸门
+- 开头钩子与人味
+- 段落密度与内容深度
 
-## Content Type Gate
+## 内容类型闸门
 
-Classify the article before writing:
+写作前先分类：
 
-- **News / event tracking**: recent dispute, launch, report, official response, community thread, media coverage.
-- **Product / tool intro**: explains a tool, workflow, release, or usage.
-- **Opinion commentary**: argues a point from known facts.
-- **Knowledge explainer**: teaches a concept or mechanism.
-- **Experience recap**: personal workflow, mistake, decision, or project review.
-- **Narrative**: story-first writing.
+- **新闻 / 事件跟踪**：近期争议、发布、报道、官方回应、社区讨论或媒体覆盖。
+- **产品 / 工具介绍**：解释工具、工作流、版本或使用方法。
+- **观点评论**：基于已知事实提出判断。
+- **知识解释**：讲清概念或机制。
+- **经验复盘**：个人工作流、错误、决策或项目回顾。
+- **叙事**：以故事推进为主。
 
-If the article is news / event tracking, it must have an evidence image plan. Do not let SVG explainers or generated metaphor images replace public-source evidence.
+新闻或事件跟踪必须有证据图片计划。SVG 解释图或生成的隐喻图不能替代公开来源证据。
 
-### Conservative News Detection
+### 保守识别新闻
 
-Record `content_type`, `classification_confidence`, and `classification_signals` before planning visuals.
+规划视觉前，记录 `content_type`、`classification_confidence` 和 `classification_signals`。
 
-Treat the article as `news_event` when two or more of these signals appear, or when one signal is central to the article:
+下列信号出现两项以上，或其中一项是文章中心时，将文章归为 `news_event`：
 
-- A recent date, launch, ban, controversy, policy change, product change, official response, public incident, or developing event.
-- A named company, person, institution, or platform did or announced something.
-- The text cites or paraphrases an official page, social post, media report, paper, documentation, interview, or community thread.
-- The reader must verify that a quote, announcement, screenshot, product state, or public reaction actually existed.
-- The article uses time-sensitive language such as "today", "recently", "announced", "responded", "reported", "went viral", or "latest".
+- 近期日期、发布、禁令、争议、政策变化、产品变化、官方回应、公共事件或持续发展中的事件。
+- 具名公司、人物、机构或平台做了某事或发布了公告。
+- 正文引用或转述官方页面、社交帖子、媒体报道、论文、文档、采访或社区讨论。
+- 读者需要确认某条引语、公告、截图、产品状态或公众反应确实存在。
+- 使用“今天”“最近”“宣布”“回应”“报道”“爆火”“最新”等时效性词语。
 
-Use `mixed_news_commentary` when the article starts from a public event and then adds the author's opinion or experience. Commentary does not remove the evidence requirement.
+文章从公共事件出发，再加入作者观点或经验时，使用 `mixed_news_commentary`。评论部分不会取消证据要求。
 
-When confidence is low but news signals exist, choose `mixed_news_commentary` instead of pure `opinion`. It is safer to collect evidence and later decide not to show it than to publish a news-like article with no evidence layer.
+置信度低但存在新闻信号时，也采用 `mixed_news_commentary`，不要归为纯 `opinion`。先收集证据再决定是否展示，比发布一篇没有证据层的新闻型文章更稳妥。
 
-## News / Event Tracking Rules
+## 新闻 / 事件跟踪规则
 
-When any of these are true, prioritize evidence screenshots:
+满足以下任一情况，优先使用证据截图：
 
-- The article cites a media report, official response, product announcement, paper, documentation page, Reddit/X/community thread, or public website.
-- The article describes a recent controversy, product change, account ban, policy change, release, or public debate.
-- The reader needs to trust that the event actually happened.
+- 文章引用媒体报道、官方回应、产品公告、论文、文档页面、Reddit/X/社区讨论或公共网站。
+- 文章描述近期争议、产品变化、账号封禁、政策变化、版本发布或公共讨论。
+- 读者需要确认事件确实发生过。
 
-Minimum expectation:
+最低要求：
 
-- Capture at least one public-source screenshot near the relevant paragraph for the final package.
-- Prefer official response or official docs first, media report second, community original discussion third.
-- For social-media-origin events, prefer the original verified/identifiable post over a media retelling when it is accessible.
-- Do not use a search-results page, code-made quote card, recreated post, or generated image as evidence.
-- If a source page cannot be captured because of login wall, network block, cookie wall, or security block, say so in the completion note.
-- Use SVG/HTML diagrams only for mechanism explanation after the evidence layer exists.
+- 完整交付包至少在对应段落附近放一张公开来源截图。
+- 来源优先级：官方回应或官方文档，其次媒体报道，再次社区原始讨论。
+- 事件源于社交媒体时，能访问原始可识别帖子，就优先于媒体转述。
+- 搜索结果页、代码制作的引语卡、重制帖子或生成图都不算证据。
+- 因登录墙、网络阻断、Cookie 墙或安全限制无法截图时，在完成回报中说明。
+- 先建立证据层，再用 SVG/HTML 图解释机制。
 
-## Opening Hook
+## 开头钩子
 
-Do not open like a neutral report. Open with human stakes first, then explain.
+先写人能感受到的利害，再解释专业问题，避免以中性报告口吻开场。
 
-Preferred sequence:
+推荐顺序：
 
-1. A real feeling, real experience, or reader pain.
-2. One plain sentence naming the conflict.
-3. Then the professional explanation.
+1. 真实感受、经历或读者痛点。
+2. 用一句大白话点明冲突。
+3. 再进入专业解释。
 
-Good directions:
+可参考：
 
-- A specific personal moment: "半个月被封了三个号以后，我对这件事的感觉变了。"
-- A reader pain: "你以为只是账号风控，后来发现它可能在看你电脑这边的痕迹。"
-- A concrete discomfort: "难受的不是封号，是你不知道它到底按什么给你贴标签。"
+- 具体经历：“半个月被封了三个号以后，我对这件事的感觉变了。”
+- 读者痛点：“你以为只是账号风控，后来发现它可能在看你电脑这边的痕迹。”
+- 具体不适：“难受的不是封号，是你不知道它到底按什么给你贴标签。”
 
-Avoid:
+避免：
 
-- "本文将分析..."
-- "这件事不只是...而是..."
-- "真正值得关注的是..."
-- Starting with four abstract nouns before the reader knows why they should care.
+- “本文将分析……”
+- “这件事不只是……而是……”
+- “真正值得关注的是……”
+- 读者尚未明白为什么要关心时，就连续抛出四个抽象名词。
 
-## Human Voice Gate
+## 人味闸门
 
-Before preview, scan for AI-smelling patterns and rewrite them into plain speech.
+预览前扫描 AI 腔，把它们改成自然的大白话。
 
-Reduce:
+减少：
 
-- "不只是/不仅是/不仅仅是 ... 而是/也是 ..."
-- "真正的问题是"
-- "核心/关键/本质/格局/凸显/反映/至关重要"
-- "更成熟的看法是"
-- "这件事的重点不是"
-- Stacked three-part abstractions.
-- Too many bold "golden sentences".
+- “不只是/不仅是/不仅仅是……而是/也是……”
+- “真正的问题是”
+- “核心/关键/本质/格局/凸显/反映/至关重要”
+- “更成熟的看法是”
+- “这件事的重点不是”
+- 连续三个抽象概念并列。
+- 过多加粗的“金句”。
 
-Rewrite direction:
+改写方向：
 
-- Replace abstract nouns with scenes readers can feel.
-- Explain a professional term with a plain sentence before using the term.
-- Let some sentences be short and conversational.
-- Do not end every paragraph by lifting the issue to "industry significance".
+- 用读者能感受到的场景替代抽象名词。
+- 专业术语先用一句大白话解释，再正式使用。
+- 允许短句和口语化节奏。
+- 段落结尾无需次次上升到“行业意义”。
 
-## Paragraph Density Gate
+## 段落密度闸门
 
-One paragraph should usually carry one job.
+一个段落通常只完成一项任务。
 
-Split or rewrite if a paragraph combines three or more of:
+同一段同时包含以下三项以上时，应拆分或重写：
 
-- Event background.
-- Technical mechanism.
-- Platform motivation.
-- User risk.
-- Industry judgment.
-- Moral conclusion.
+- 事件背景。
+- 技术机制。
+- 平台动机。
+- 用户风险。
+- 行业判断。
+- 道德结论。
 
-For Chinese body paragraphs:
+中文正文建议：
 
-- Over 90-120 Chinese characters: inspect and usually split.
-- Over 160 Chinese characters: split unless it is a deliberate narrative paragraph.
-- If there are more than two abstract concepts in one paragraph, add a concrete example or split.
+- 超过 90 至 120 个汉字：检查并通常拆分。
+- 超过 160 个汉字：除非是刻意保留的叙事段，否则必须拆分。
+- 同段出现两个以上抽象概念时，补具体例子或拆分。
 
-## Depth Without Sterility
+## 有深度，也有人味
 
-The target is not casual fluff. Keep factual boundaries and technical depth, but let readers enter through lived experience.
+保持事实边界和技术深度，同时让读者从真实体验进入。
 
-Pattern:
+推荐路径：
 
 ```text
 人能感到的事 -> 大白话解释 -> 证据/截图 -> 机制图 -> 判断
 ```
 
-Do not start with:
+避免从这里开始：
 
 ```text
 行业意义 -> 抽象机制 -> 风险框架 -> 用户情绪

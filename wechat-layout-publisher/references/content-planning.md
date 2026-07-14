@@ -1,83 +1,81 @@
-# Article Planning
+# 文章规划
 
-Use this before writing article HTML. A strong WeChat article is not a poster deck; it is a long-form reading path with a few precise visual anchors.
+编写文章 HTML 前先完成本规划。好的公众号文章是一条有节奏的长文阅读路径，只在关键处设置准确的视觉锚点，不把正文做成海报组。
 
-## Compression Ladder
+## 信息压缩阶梯
 
-Read the source and compress it in layers:
+分层阅读并压缩源文章：
 
-0. **Content type**: classify as news/event tracking, product/tool intro, opinion commentary, knowledge explainer, experience recap, or narrative. Use `editorial-writing.md`.
-   Record confidence and the exact textual signals. Public-event-plus-opinion is `mixed_news_commentary`, not pure opinion.
-1. **Core claim**: one sentence that names the article's real point.
-2. **Reader promise**: what the reader will understand after reading.
-3. **Section map**: 3-5 reading units, each with one job.
-4. **Visual map**: 2-5 visuals that reduce effort, prove a claim, or create atmosphere.
-5. **Body rhythm**: short paragraphs, callouts, diagrams, screenshots, and captions.
+0. **内容类型**：按 `editorial-writing.md` 分类为新闻/事件跟踪、产品/工具介绍、观点评论、知识解释、经验复盘或叙事。记录置信度和具体文本依据。公共事件加观点属于 `mixed_news_commentary`，不能归为纯观点。
+1. **核心主张**：用一句话说清文章真正想表达什么。
+2. **读者承诺**：读完以后，读者能理解什么。
+3. **章节地图**：规划 3 至 5 个阅读单元，每个单元只承担一项工作。
+4. **视觉地图**：只有当图片能降低理解成本、证明主张或建立必要氛围时，才给阅读单元分配视觉锚点。
+5. **正文节奏**：短段落、重点提示、图表、截图和图注交替出现。
 
-Do not put the whole article into images. Images should carry evidence, structure, and emotional entry points; nuance belongs in the article body.
+禁止把整篇文章塞进图片。图片承载证据、结构和情绪入口，细节与判断留在正文。
 
-## Section Roles
+## 阅读单元职责
 
-Prefer varied roles instead of repeating title + paragraph + picture:
+避免反复使用“标题 + 段落 + 图片”，优先组合不同职责：
 
-- **Lead thesis**: one sharp opening paragraph with a left accent rule.
-- **Signal overview**: numeric cards, a timeline, or a comparison map.
-- **Evidence block**: screenshot, source quote, product page, document, or user image.
-- **Mechanism explainer**: flow, framework, pipeline, decision tree, matrix.
-- **Tension section**: misconception vs reality, old way vs new way, surface vs structure.
-- **Takeaway section**: 3-point summary, closing note, or dark final block.
+- **导语主张**：用带左侧强调线的短段落进入主题。
+- **信号总览**：数字卡、时间线或比较图。
+- **证据块**：截图、来源引语、产品页面、文档或用户图片。
+- **机制解释**：流程、框架、管线、决策树或矩阵。
+- **张力单元**：误解与现实、旧方法与新方法、表象与结构。
+- **结论单元**：三点收束、结束语或深色结尾块。
 
-If a section has only one simple idea, do not force an image. Use spacing, a callout, or a short heading.
+一个单元只有简单观点时，不要强行配图；改用留白、提示块或短标题。
 
-## Image Count Guidance
+## 视觉密度
 
-For long-form WeChat:
+- 默认每个阅读单元一个视觉锚点，首图承载该单元入口时也计入。
+- 只有证据、真实数据、流程、比较或机制需要独立表达时，才增加第二张图。
+- 禁止把段落边界、文章长度或数字配额当作图片槽位。
+- 连续两张大图、同一单元超过一张大图、或视觉重复附近正文时，必须重新判断。
+- 长文章可以图少，也可以图多；数量由信息增益和阅读节奏决定。
+- 图表只能使用真实且有价值的数据，禁止编造精确数字或制作装饰性伪图表。
 
-- 600-1000 Chinese characters: 1 hero + 1-2 supporting visuals.
-- 1000-1800 Chinese characters: 1 hero + 2-4 supporting visuals.
-- 1800+ Chinese characters: 1 hero + 3-6 supporting visuals, but group dense facts into overview graphics.
+## 文案规则
 
-More images are not automatically better. The article should still read calmly.
+- 除非用户要求改写，否则保留原有观点和措辞。
+- 章节标题要表达真实内容，少用“背景介绍”这类泛标题。
+- 依赖来源的主张，把证据放在附近。
+- 描述结构时优先制作图解，不添加装饰图。
+- 最有力量的一句话只提炼到导语或结尾块一次，禁止每段都加粗。
 
-## Copy Rules
+## 规划模板
 
-- Preserve the user's argument and wording unless rewriting is requested.
-- Use section titles that name the actual point, not generic labels such as "背景介绍".
-- When a claim depends on a source, put evidence near it.
-- When a claim describes structure, make a diagram instead of adding decorative images.
-- Pull out the strongest sentence into a lead or closing block; do not bold every paragraph.
-
-## Planning Template
-
-Use internally:
+内部使用：
 
 ```text
-Title:
-Subtitle:
-Core claim:
-Reader promise:
-Tone:
+标题：
+副标题：
+核心主张：
+读者承诺：
+语气：
 
-Unit 1 / role / key point / visual need / source type
-Unit 2 / role / key point / visual need / source type
-Unit 3 / role / key point / visual need / source type
+单元 1 / 职责 / 要点 / 视觉需求 / 来源类型
+单元 2 / 职责 / 要点 / 视觉需求 / 来源类型
+单元 3 / 职责 / 要点 / 视觉需求 / 来源类型
 ...
-Closing / final takeaway
+结尾 / 最终判断
 ```
 
-For each visual:
+每个视觉填写：
 
 ```text
-Slot:
-Placement:
-Role:
-Why needed:
-Source type:
-Prompt/query/source:
-Caption:
-Risk:
+槽位：
+位置：
+角色：
+必要性：
+来源类型：
+提示词/查询/来源：
+图注：
+风险：
 ```
 
-Persist the final plan as `image-plan.json` rather than keeping it only in hidden reasoning. Use the four exact source types from `image-placement.md`: `user_asset`, `evidence_screenshot`, `generated_image`, and `coded_visual`.
+最终规划必须保存为 `image-plan.json`，不能只留在隐藏推理中。来源类型严格使用 `image-placement.md` 的四个值：`user_asset`、`evidence_screenshot`、`generated_image`、`coded_visual`。
 
-If the risk is unresolved (license, unreadable screenshot, weak generated image, missing source), fix it or disclose it.
+版权、截图不可读、生成图质量弱或来源缺失等风险尚未解决时，先修复或向用户说明。

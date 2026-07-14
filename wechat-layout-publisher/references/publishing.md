@@ -1,42 +1,42 @@
-# Draft Box Publishing
+# 微信正式交付与草稿箱
 
-Use this only when the user explicitly asks to send the finished article to the WeChat Official Account draft box.
+文章母版、最终 `image-plan.json` 和视觉检查完成后，使用本流程。同一份文章正文支持两种最终交付：正式可复制版，以及仅在用户要求时创建的草稿箱版。
 
-## Contents
+## 目录
 
-- Requirements and first-time setup
-- Credential lookup and secure import
-- Publishing commands and copy-ready outputs
-- Error handling
+- 前置条件与首次设置
+- 凭据查找与安全导入
+- 正式准备模式与草稿命令
+- 错误处理
 
-## Requirements
+## 前置条件
 
-- The account must be an authenticated WeChat Official Account with `draft/add` permission.
-- `WECHAT_APP_ID` and `WECHAT_APP_SECRET` must be available from environment variables, a local `.env`, or the system credential store.
-- The caller's public IP must be in the official account IP whitelist.
-- A cover image is required: pass `--cover <path>` or use `--gen-cover` with `OPENAI_API_KEY`.
-- Use the `2.35:1` headline cover as `--cover` for normal publishing. Recommended size: `900 x 383`; high-resolution equivalent: `2350 x 1000`. The current `draft/add` script sends one cover media id; optional `1:1` cover files are extra assets, not a second API cover field.
-- Official API references:
-  - Access token: `https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Get_access_token.html`
-  - Add draft: `https://developers.weixin.qq.com/doc/offiaccount/Draft_Box/Add_draft.html`
+- 目标账号必须是已认证且拥有 `draft/add` 权限的微信公众号。
+- 需要上传正文图或创建草稿时，`WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` 必须来自环境变量、本地 `.env` 或系统安全凭据库。`--prepare-only` 输入已经全部是有效微信图片 URL 时，只验证并复用，不要求凭据。
+- 调用方公网 IP 必须加入公众号 IP 白名单。
+- 只有草稿模式需要封面：传入 `--cover <path>`，或用 `--gen-cover` 与 `OPENAI_API_KEY` 生成。
+- 普通发布的 `--cover` 使用 `2.35:1` 头条封面，标准成品为 `900 x 383`。当前 `draft/add` 脚本只发送一个封面 media id；可选 `1:1` 是附加素材，不是第二个 API 封面字段。
+- 官方 API 参考：
+  - Access token：`https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Get_access_token.html`
+  - 添加草稿：`https://developers.weixin.qq.com/doc/offiaccount/Draft_Box/Add_draft.html`
 
-## First-Time Setup for Distributed Users
+## 分发用户首次设置
 
-Never put a real AppSecret in the Skill package. Give users the Skill folder with `.env.example` only.
+真实 AppSecret 绝不能进入 Skill 包。分发时只保留 `.env.example`。
 
-## Credential Lookup Policy
+## 凭据查找规则
 
-The Skill deliberately does not search the whole computer for secrets. That would be slow, surprising, and unsafe.
+本 Skill 不会搜索整台电脑里的密钥。那既慢、出人意料，也不安全。
 
-When publishing, check only these sources:
+发布时只检查：
 
-1. Current environment variables.
-2. Local `.env` in the current project or Skill root.
-3. Standard system credential store:
-   - macOS Keychain: `service=wechat-layout-publisher`, `account=WECHAT_APP_ID` / `WECHAT_APP_SECRET`.
-   - Windows Credential Manager: `target=wechat-layout-publisher:WECHAT_APP_ID` / `wechat-layout-publisher:WECHAT_APP_SECRET`.
+1. 当前环境变量。
+2. 当前项目或 Skill 根目录的本地 `.env`。
+3. 标准系统安全凭据库：
+   - macOS Keychain：`service=wechat-layout-publisher`，`account=WECHAT_APP_ID` / `WECHAT_APP_SECRET`。
+   - Windows Credential Manager：`target=wechat-layout-publisher:WECHAT_APP_ID` / `wechat-layout-publisher:WECHAT_APP_SECRET`。
 
-If not found, ask the user once:
+仍未找到时，只向用户询问一次：
 
 ```text
 我没在标准位置找到公众号凭据。你想怎么配置？
@@ -45,9 +45,9 @@ If not found, ask the user once:
 3. 你临时提供一次 AppID/AppSecret，我只导入系统安全凭据，不写进 Skill 包。
 ```
 
-Do not search old conversations, screenshots, random notes, shell history, or unrelated Keychain entries unless the user explicitly asks for that forensic search.
+除非用户明确要求取证式搜索，否则禁止搜索旧会话、截图、随机笔记、shell 历史或无关钥匙串条目。
 
-From the Skill root:
+在 Skill 根目录运行：
 
 ```bash
 cd scripts
@@ -55,44 +55,44 @@ npm ci --omit=dev
 npm run setup
 ```
 
-The setup script:
+设置脚本会：
 
-- macOS: saves credentials in macOS Keychain.
-- Windows: saves credentials in Windows Credential Manager.
-- Shows the current public IP so the user can add it to the WeChat Official Account IP whitelist.
-- Checks whether WeChat can issue an access token after credentials are saved.
-- Uses the standard credential identity:
-  - macOS Keychain: `service=wechat-layout-publisher`, `account=WECHAT_APP_ID` / `WECHAT_APP_SECRET`.
-  - Windows Credential Manager: `target=wechat-layout-publisher:WECHAT_APP_ID` / `wechat-layout-publisher:WECHAT_APP_SECRET`.
+- macOS：保存到 macOS Keychain。
+- Windows：保存到 Windows Credential Manager。
+- 显示当前公网 IP，供用户添加到公众号 IP 白名单。
+- 保存凭据后，检查微信能否签发 access token。
+- 使用统一凭据标识：
+  - macOS Keychain：`service=wechat-layout-publisher`，`account=WECHAT_APP_ID` / `WECHAT_APP_SECRET`。
+  - Windows Credential Manager：`target=wechat-layout-publisher:WECHAT_APP_ID` / `wechat-layout-publisher:WECHAT_APP_SECRET`。
 
-Where users find credentials in the WeChat Official Account backend:
+用户在微信公众号后台查找凭据的路径：
 
-1. Open `https://mp.weixin.qq.com` and log in to the target Official Account.
-2. Go to Settings and Development / Basic Configuration.
-3. Copy the account's AppID.
-4. Generate or copy AppSecret. Treat it as a password.
-5. Add this computer's current public IP to the IP whitelist.
-6. Run `npm run check-credentials` after changing the whitelist.
+1. 打开 `https://mp.weixin.qq.com` 并登录目标公众号。
+2. 进入“设置与开发 / 基本配置”。
+3. 复制公众号 AppID。
+4. 生成或复制 AppSecret，并把它当作密码保护。
+5. 把本机当前公网 IP 加入 IP 白名单。
+6. 白名单修改后运行 `npm run check-credentials`。
 
-If credentials are missing or the user says they configured them elsewhere:
+缺少凭据，或用户表示凭据配置在别处时：
 
 ```bash
 cd scripts
 npm run diagnose-credentials
 ```
 
-This prints the exact service/account lookup and whether each value is found, without printing secrets.
+该命令只显示准确的服务名、账户名及是否找到，不打印密钥。
 
-If the user has credentials in environment variables or a local `.env`, import them into the standard secure store:
+环境变量或本地 `.env` 已有凭据时，导入标准安全凭据库：
 
 ```bash
 cd scripts
 npm run import-credentials
 ```
 
-Do not search old chat logs for AppSecret unless the user explicitly asks. Prefer standard secure setup/import.
+禁止擅自搜索旧聊天中的 AppSecret，优先使用标准安全设置或导入流程。
 
-Advanced users can copy `.env.example` to `.env` in the skill root or current project root:
+高级用户可以把 `.env.example` 复制为 Skill 根目录或当前项目根目录的 `.env`：
 
 ```bash
 WECHAT_APP_ID=
@@ -101,20 +101,52 @@ OPENAI_API_KEY=
 OPENAI_IMAGE_MODEL=gpt-image-2
 ```
 
-Do not distribute `.env`. Do not print AppSecret back to the user. If a secret is pasted into chat, recommend rotating it after testing.
+禁止分发 `.env`，也禁止向用户回显 AppSecret。用户把密钥粘贴到聊天中时，建议测试后轮换。
 
-## Command
+## 交付模式
 
-From the skill root:
+### 正式可复制版
+
+这是普通排版或复制任务默认先交付的用户成品。只有内部本地预览已在 `375-390px` 宽度完成人工视觉审查后才执行。它会上传或复用正文图，验证全部正文图都使用有效微信主机，写出正文片段和预览外壳；绝不上传封面，也绝不调用 `draft/add`。
+
+重要：`publish.ts` 默认进入草稿模式。首轮正式可复制交付必须显式传入 `--prepare-only`；漏写该参数会改变交付状态。
 
 ```bash
 cd scripts
-npm ci --omit=dev
-npx tsx publish.ts <article.html> --image-plan <image-plan.json> --source-article <source-article.md> \
-  --title "标题" --author "作者" --cover <cover-image>
+npx tsx publish.ts <article.html> --prepare-only \
+  --image-plan <image-plan.json> --source-article <source-article.md> \
+  --upload-manifest <output/upload-manifest.json> \
+  --write-uploaded-fragment <output/article-fragment-wechat.html> \
+  --write-copy-ready <output/preview-wechat-copy.html>
 ```
 
-Optional flags:
+`--prepare-only` 至少要求一个输出参数；普通交付同时使用两个。只有需要上传本地正文图时才使用微信凭据。成功含义是：`正文图片已准备，可复制；未创建草稿`。
+
+### 用已准备正文创建草稿
+
+用户确认后，把准备好的正文片段交回同一个命令，不加 `--prepare-only`。脚本只提取 `ARTICLE HTML START/END` 之间的内容，验证已有微信图片 URL，上传封面，再把完全相同的正文发送到 `draft/add`。
+
+```bash
+cd scripts
+npx tsx publish.ts <output/article-fragment-wechat.html> \
+  --image-plan <image-plan.json> --source-article <source-article.md> \
+  --title "标题" --author "作者" --cover <cover-900x383.png>
+```
+
+复制按钮、预览状态、回到顶部按钮和脚本只存在于预览外壳，绝不能进入草稿正文。
+
+### 直接创建草稿
+
+用户明确要求直接进入草稿箱时，对本地验证通过的文章母版运行默认草稿模式：
+
+```bash
+cd scripts
+npx tsx publish.ts <article.html> --image-plan <image-plan.json> --source-article <source-article.md> \
+  --title "标题" --author "作者" --cover <cover-900x383.png> \
+  --upload-manifest <output/upload-manifest.json>
+```
+
+可选参数：
 
 ```bash
 --digest "摘要"
@@ -124,12 +156,13 @@ Optional flags:
 --model gpt-image-2
 --cover-prompt "用户把高权限交给 AI 后出现信任裂缝"
 --asset-dir "../shared-materials"
+--upload-manifest "../output/upload-manifest.json"
 --allow-evidence-failure
 --write-uploaded-fragment "../output/article-fragment-wechat.html"
 --write-copy-ready "../output/preview-wechat-copy.html"
 ```
 
-For generated article preview files, `publish.ts` extracts content between:
+对生成的文章预览文件，`publish.ts` 只提取以下标记之间的内容：
 
 ```html
 <!-- ARTICLE HTML START -->
@@ -137,39 +170,40 @@ For generated article preview files, `publish.ts` extracts content between:
 <!-- ARTICLE HTML END -->
 ```
 
-It uploads body images to WeChat with `media/uploadimg`, uploads the cover with `material/add_material`, then calls `draft/add`.
+草稿模式只上传没有有效 manifest 记录或有效微信 URL 的正文图片，然后通过 `material/add_material` 上传封面，再调用 `draft/add`。
 
-Before any WeChat request, `publish.ts` validates article safety, the final image plan, every body image, the allowed local-asset boundary, and the `900 x 383` cover crop. Remote body images also pass public-network, redirect, timeout, size, MIME, and file-signature checks. `--allow-evidence-failure` is only for a final plan whose attempted evidence sources all record real access failures.
+在 token、上传或草稿 API 调用前，`publish.ts` 会验证文章安全、最终图片计划、图片计划与正文图的内容哈希一致性、本地正文图、允许的本地素材边界和 `900 x 383` 封面裁切。受保护远程下载器会检查公网路由、重定向、超时、大小、MIME 与文件签名。`--allow-evidence-failure` 只适用于最终计划中所有证据尝试都真实记录访问失败的情况。
 
-`--image-plan` is mandatory. For HTML input, `--source-article` is also mandatory so the semantic classifier inspects the original article rather than a rewritten output. Markdown input may use itself. Local image paths may only resolve inside the article directory or a directory explicitly supplied with `--asset-dir`; this prevents article HTML from uploading unrelated files.
+`--image-plan` 为必填。HTML 输入还必须提供 `--source-article`，让语义分类器读取原始文章而非改写后的输出；Markdown 输入可使用自身。本地图片只能位于文章目录，或显式 `--asset-dir` 指定的目录，防止文章 HTML 上传无关文件。
 
-`--gen-cover` generates a landscape source image and center-crops it to an exact `900 x 383` JPEG. Use `--cover-prompt` to provide the semantic metaphor or visual direction; title-only generation is a fallback.
+`--gen-cover` 会生成无文字横向底图，把它裁成准确的 `900 x 383` JPEG，再在左侧安静构图区通过可控 SVG 层合成真实标题。用 `--cover-prompt` 传入语义隐喻或视觉方向。
 
-If the user also wants a preview they can copy into the WeChat editor with images preserved, add:
+## 上传复用清单
 
-```bash
-npx tsx publish.ts <article.html> --image-plan <image-plan.json> --source-article <source.md> \
-  --title "标题" --cover <cover.png> \
-  --write-uploaded-fragment "../output/article-fragment-wechat.html" \
-  --write-copy-ready "../output/preview-wechat-copy.html"
-```
+默认 manifest 位于输入文章旁的 `wechat-upload-manifest.json`；用 `--upload-manifest` 可放到输出目录。它只保存 `schema_version`，以及包含 `source`、`sha256`、`wechat_url`、`uploaded_at` 的条目。
 
-The generated WeChat copy-ready files use the uploaded WeChat image URLs in the article body. Run:
+- 文件哈希未变，且微信 PNG/JPEG URL 仍可取回：复用。
+- 哈希变化或 URL 失效：只重新上传该图。
+- 文字与排版修改不触发正文图上传。
+- 已有有效 `mmbiz.qpic.cn` 或 `mmbiz.qlogo.cn` 正文图保持不变。
+- 原子写入。token、AppID、AppSecret 和 API key 都不能进入 manifest。
+
+生成的正式可复制文件正文只使用微信图片 URL。运行：
 
 ```bash
 npm run verify-copy-ready -- ../output/preview-wechat-copy.html
 ```
 
-Do not present a local preview with `images/foo.jpg` as "copy-ready for WeChat"; the default local preview intentionally has no copy button. Ordinary remote image URLs and data URIs are not accepted by the default copy-ready verifier. Use `--allow-remote` or `--allow-data-uri` only after a manual paste test proves that exact route survives in the editor.
+禁止把使用 `images/foo.jpg` 的本地预览称为“可直接复制到微信”；默认本地预览故意不显示复制按钮。普通远程 URL 和 data URI 默认不会通过正式可复制验证。只有真实粘贴测试证明该路线在编辑器中有效时，才可使用 `--allow-remote` 或 `--allow-data-uri`。
 
-## Error Handling
+## 错误处理
 
-- `Missing WECHAT_APP_ID / WECHAT_APP_SECRET`: run `npm run diagnose-credentials`, then `npm run setup` or `npm run import-credentials`.
-- `--image-plan is required`: finish and validate `image-plan.json`, then pass it explicitly.
-- `outside the article or allowed asset directories`: place the file beside the article or add its narrow material folder with `--asset-dir`.
-- `errcode=40164`: add the current public IP to the official account IP whitelist.
-- `errcode=48001`: the account is not authenticated or lacks the required API permission.
-- `Body image too large`: compress the body image under 1 MB and retry.
-- `A cover image is required`: pass `--cover` or use `--gen-cover`.
+- `Missing WECHAT_APP_ID / WECHAT_APP_SECRET`：运行 `npm run diagnose-credentials`，再执行 `npm run setup` 或 `npm run import-credentials`。
+- `--image-plan is required`：完成并验证 `image-plan.json`，然后显式传入。
+- `outside the article or allowed asset directories`：把文件放到文章旁，或用 `--asset-dir` 添加范围最小的素材目录。
+- `errcode=40164`：把当前公网 IP 加入公众号 IP 白名单。
+- `errcode=48001`：账号未认证或缺少所需 API 权限。
+- `Body image too large`：把正文图压到 1 MB 内后重试。
+- `A cover image is required for draft mode`：传入 `--cover` 或使用 `--gen-cover`；`--prepare-only` 不需要封面。
 
-Successful draft creation is not public publishing. The user must still open `mp.weixin.qq.com`, preview the draft, and publish manually.
+草稿创建成功不等于公开发布。用户仍需打开 `mp.weixin.qq.com`，预览草稿并手动发布。

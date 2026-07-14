@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { dirname, extname, resolve } from "node:path";
+import sharp from "sharp";
 
 const args = process.argv.slice(2);
 let stage = "final";
@@ -44,9 +45,17 @@ const sourceTypes = new Set(["user_asset", "evidence_screenshot", "generated_ima
 const roles = new Set(["hero", "evidence", "explainer", "data", "object", "divider"]);
 const codedKinds = new Set(["process", "relationship", "timeline", "framework", "comparison", "data", "mechanism"]);
 const newsTypes = new Set(["news_event", "mixed_news_commentary"]);
+const headlineRatio = 900 / 383;
 
 function nonEmpty(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function validDataSource(value) {
+  return (
+    nonEmpty(value) &&
+    (/^https?:\/\//i.test(value.trim()) || /^sha256:[a-f0-9]{64}$/i.test(value.trim()) || /^user-provided:.+/i.test(value.trim()))
+  );
 }
 
 function detectPngOrJpeg(buffer) {
@@ -99,6 +108,30 @@ function localCodedAssetIsValid(path) {
   );
 }
 
+async function visualDimensions(assetPath) {
+  if (/^data:/i.test(assetPath)) {
+    const match = assetPath.match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/i);
+    if (!match) return undefined;
+    const metadata = await sharp(Buffer.from(match[2], "base64")).metadata();
+    return metadata.width && metadata.height ? { width: metadata.width, height: metadata.height } : undefined;
+  }
+  const resolvedPath = resolve(dirname(file), assetPath);
+  const extension = extname(resolvedPath).toLowerCase();
+  if (![".svg", ".html", ".htm"].includes(extension)) {
+    const metadata = await sharp(resolvedPath).metadata();
+    return metadata.width && metadata.height ? { width: metadata.width, height: metadata.height } : undefined;
+  }
+  if (extension === ".svg") {
+    const raw = readFileSync(resolvedPath, "utf8");
+    const viewBox = raw.match(/\bviewBox\s*=\s*["']\s*[-+\d.]+\s+[-+\d.]+\s+([-+\d.]+)\s+([-+\d.]+)\s*["']/i);
+    if (viewBox) return { width: Number(viewBox[1]), height: Number(viewBox[2]) };
+    const width = raw.match(/<svg\b[^>]*\bwidth\s*=\s*["']([\d.]+)(?:px)?["']/i)?.[1];
+    const height = raw.match(/<svg\b[^>]*\bheight\s*=\s*["']([\d.]+)(?:px)?["']/i)?.[1];
+    if (width && height) return { width: Number(width), height: Number(height) };
+  }
+  return undefined;
+}
+
 function detectNewsSignals(raw) {
   const text = raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
   const rules = [
@@ -111,6 +144,7 @@ function detectNewsSignals(raw) {
 }
 
 if (!contentTypes.has(plan.content_type)) issues.push(`Unknown content_type: ${String(plan.content_type)}`);
+if (!nonEmpty(plan.runtime)) issues.push("runtime is required so provider checks cannot be bypassed.");
 if (typeof plan.classification_confidence !== "number" || plan.classification_confidence < 0 || plan.classification_confidence > 1) {
   issues.push("classification_confidence must be a number from 0 to 1.");
 }
@@ -224,6 +258,14 @@ for (const [index, visual] of visuals.entries()) {
     }
   }
 
+  if (visual.role === "data" || visual.semantic_kind === "data") {
+    if (!Array.isArray(visual.data_sources) || !visual.data_sources.length || !visual.data_sources.every(validDataSource)) {
+      issues.push(
+        `${label}.data_sources must use http(s) URLs, sha256:<64-hex>, or user-provided:<description> for every data source.`,
+      );
+    }
+  }
+
   if (stage === "final" && visual.status !== "attempt_failed" && !nonEmpty(visual.asset_path)) {
     issues.push(`${label}.asset_path is required at final stage.`);
   }
@@ -247,6 +289,53 @@ const firstVisual = [...visuals].sort((a, b) => (a.order || 0) - (b.order || 0))
 const firstIsGeneratedFallback = firstVisual?.source_type === "coded_visual" && firstVisual?.fallback_for === "generated_image";
 if (firstVisual?.source_type === "coded_visual" && !firstIsGeneratedFallback) {
   issues.push("The first visual must not be a coded_visual; use a relevant user asset, evidence image, or generated editorial image.");
+}
+if (
+  stage === "final" &&
+  checkFiles &&
+  firstVisual?.status !== "attempt_failed" &&
+  nonEmpty(firstVisual?.asset_path) &&
+  !/^https?:/i.test(firstVisual.asset_path)
+) {
+  try {
+    const dimensions = await visualDimensions(firstVisual.asset_path);
+    if (!dimensions || !Number.isFinite(dimensions.width) || !Number.isFinite(dimensions.height) || dimensions.height <= 0) {
+      warnings.push("The first visual dimensions could not be verified automatically; inspect its 2.35:1 composition manually.");
+    } else {
+      const ratio = dimensions.width / dimensions.height;
+      if (Math.abs(ratio - headlineRatio) / headlineRatio > 0.02) {
+        issues.push(
+          `The first visual must use the 2.35:1 article-hero ratio; got ${dimensions.width}x${dimensions.height} (${ratio.toFixed(2)}:1).`,
+        );
+      }
+    }
+  } catch (error) {
+    issues.push(`Could not inspect first-visual dimensions: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+const orderedVisuals = [...visuals].sort((a, b) => (a.order || 0) - (b.order || 0));
+const bySection = new Map();
+const reasonOwners = new Map();
+for (const visual of orderedVisuals) {
+  if (nonEmpty(visual.section)) {
+    const key = visual.section.trim().toLowerCase();
+    bySection.set(key, [...(bySection.get(key) || []), visual]);
+  }
+  if (nonEmpty(visual.semantic_reason)) {
+    const key = visual.semantic_reason.trim().replace(/\s+/g, " ").toLowerCase();
+    reasonOwners.set(key, [...(reasonOwners.get(key) || []), visual.id || `order ${visual.order}`]);
+  }
+}
+for (const [section, items] of bySection) {
+  if (items.length > 1) {
+    warnings.push(
+      `Reading unit "${section}" has ${items.length} visuals. Keep more than one only when they have distinct evidence/data/process/mechanism jobs.`,
+    );
+  }
+}
+for (const [reason, owners] of reasonOwners) {
+  if (owners.length > 1) warnings.push(`Visuals ${owners.join(", ")} repeat the same semantic reason: ${reason}`);
 }
 
 if (
