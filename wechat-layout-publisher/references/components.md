@@ -4,6 +4,8 @@
 
 正文内所有片段只能使用内联样式，禁止 `class`、`id`、`<style>` 和 JavaScript。
 
+每个计划视觉只在实际 `<img>` 或内联代码视觉最外层标记一次 `data-wlp-visual-id="image-plan 中的 id"`。`preserve` 模式获准新增的标题、副标题、图注或来源节点，另加 `data-wlp-added="title|subtitle|caption|source"`；原文已有节点不要标记。
+
 ## 目录
 
 - 设计变量与正文外壳
@@ -43,7 +45,7 @@
 
 ```html
 <section style="margin:0 0 24px;">
-  <img src="images/hero.jpg" style="display:block;width:100%;height:auto;border-radius:4px;" />
+  <img data-wlp-visual-id="hero" src="images/hero.jpg" style="display:block;width:100%;height:auto;border-radius:4px;" />
   <p style="margin:10px 0 0;text-align:center;font-size:12px;line-height:1.6;color:#999999;">图注：根据文章语义生成的编辑配图</p>
 </section>
 ```
@@ -101,7 +103,7 @@
 
 ```html
 <section style="margin:18px 0 24px;padding:16px;background:#fbf8f3;border:1px solid #e7dfd3;border-radius:4px;">
-  <img src="images/screenshot.jpg" style="display:block;width:100%;height:auto;border-radius:3px;" />
+  <img data-wlp-visual-id="official-evidence" src="images/screenshot.jpg" style="display:block;width:100%;height:auto;border-radius:3px;" />
 </section>
 <p style="margin:-12px 0 24px;text-align:center;font-size:12px;line-height:1.6;color:#999999;">图注：页面截图｜来源：...</p>
 ```
@@ -141,7 +143,7 @@
 时间线、比较、飞轮、管线、矩阵和数字总览优先使用 SVG。文字在手机上也要足够大。视觉占满正文宽度时，使用 `viewBox="0 0 637 H"`。
 
 ```html
-<section style="margin:18px 0 24px;padding:22px 20px;background:#fbf8f3;border-radius:4px;">
+<section data-wlp-visual-id="mechanism" style="margin:18px 0 24px;padding:22px 20px;background:#fbf8f3;border-radius:4px;">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 637 260" style="display:block;width:100%;height:auto;">
     <rect width="637" height="260" fill="#fbf8f3"/>
     <text x="24" y="34" font-size="20" font-weight="800" fill="#252525" font-family="system-ui">结构标题</text>

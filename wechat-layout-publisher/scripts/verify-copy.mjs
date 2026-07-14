@@ -2,11 +2,12 @@
 import { readFileSync } from "node:fs";
 
 function usage() {
-  console.error("Usage: node verify-copy.mjs <article-preview-or-fragment.html|text.md>");
+  console.error("Usage: node verify-copy.mjs [--strict] <article-preview-or-fragment.html|text.md>");
   process.exit(2);
 }
 
-const file = process.argv[2];
+const strict = process.argv.includes("--strict");
+const file = process.argv.slice(2).find((arg) => arg !== "--strict");
 if (!file) usage();
 
 const raw = readFileSync(file, "utf8");
@@ -74,4 +75,5 @@ if (!warnings) {
   console.log("Copy check passed: no obvious density or AI-smell warnings.");
 } else {
   console.log(`\nCopy check completed with ${warnings} warning(s). Rewrite before final delivery when warnings match the actual prose.`);
+  if (strict) process.exit(1);
 }

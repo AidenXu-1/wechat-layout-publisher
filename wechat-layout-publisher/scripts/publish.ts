@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve, isAbsolute, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { renderArticle, extractImageSrcs } from "./render.ts";
+import { extractImageSrcs } from "./render.ts";
 import { getAccessToken, uploadBodyImage, uploadCoverMaterial, addDraft } from "./wechat.ts";
 import type { DraftArticle } from "./wechat.ts";
 import { generateCover, coverPrompt } from "./imagegen.ts";
@@ -14,6 +14,7 @@ import type { RuntimeCredentials } from "./credentials.ts";
 import { detectImageFormat } from "./image-utils.ts";
 import { safeFetchBuffer } from "./safe-fetch.ts";
 import { prepareHeadlineCover } from "./cover-image.ts";
+import { validateVisualQaReceipt } from "./visual-qa.ts";
 
 interface Args {
   input: string;
@@ -33,7 +34,9 @@ interface Args {
   allowEvidenceFailure: boolean;
   assetDirs: string[];
   prepareOnly: boolean;
+  createDraft: boolean;
   uploadManifest?: string;
+  visualQa?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -43,8 +46,11 @@ function parseArgs(argv: string[]): Args {
     noComment: false,
     allowEvidenceFailure: false,
     assetDirs: [],
-    prepareOnly: false,
+    prepareOnly: true,
+    createDraft: false,
   };
+  let prepareOnlyExplicit = false;
+  let createDraftExplicit = false;
   const value = (flag: string, index: number): string => {
     const next = argv[index + 1];
     if (!next || next.startsWith("--")) throw new Error(`Missing value for ${flag}`);
@@ -53,7 +59,15 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--gen-cover") a.genCover = true;
-    else if (t === "--prepare-only") a.prepareOnly = true;
+    else if (t === "--prepare-only") {
+      prepareOnlyExplicit = true;
+      a.prepareOnly = true;
+    }
+    else if (t === "--create-draft") {
+      createDraftExplicit = true;
+      a.createDraft = true;
+      a.prepareOnly = false;
+    }
     else if (t === "--no-comment") a.noComment = true;
     else if (t === "--allow-evidence-failure") a.allowEvidenceFailure = true;
     else if (t === "--title") a.title = value(t, i++);
@@ -67,6 +81,7 @@ function parseArgs(argv: string[]): Args {
     else if (t === "--write-copy-ready") a.writeCopyReady = value(t, i++);
     else if (t === "--image-plan") a.imagePlan = value(t, i++);
     else if (t === "--source-article") a.sourceArticle = value(t, i++);
+    else if (t === "--visual-qa") a.visualQa = value(t, i++);
     else if (t === "--asset-dir") a.assetDirs.push(value(t, i++));
     else if (t === "--upload-manifest") a.uploadManifest = value(t, i++);
     else if (t.startsWith("--")) throw new Error(`Unknown option: ${t}`);
@@ -75,10 +90,12 @@ function parseArgs(argv: string[]): Args {
   }
   if (!a.input) {
     throw new Error(
-      "Usage: publish.ts <article.html|article.md> --image-plan <image-plan.json> [--source-article <original.md>] [--prepare-only] [--title ..] [--cover <path> | --gen-cover] [--asset-dir <allowed-dir>] [--upload-manifest <path>] [--cover-prompt ..] [--author ..] [--digest ..] [--no-comment] [--allow-evidence-failure] [--write-uploaded-fragment <path>] [--write-copy-ready <path>]",
+      "Usage: publish.ts <article.html> --image-plan <image-plan.json> --visual-qa <visual-qa.json> --source-article <original.md> [--prepare-only | --create-draft] [--title ..] [--cover <path> | --gen-cover] [--asset-dir <allowed-dir>] [--upload-manifest <path>] [--cover-prompt ..] [--author ..] [--digest ..] [--no-comment] [--allow-evidence-failure] [--write-uploaded-fragment <path>] [--write-copy-ready <path>]",
     );
   }
   if (!a.imagePlan) throw new Error("--image-plan <image-plan.json> is required.");
+  if (!a.visualQa) throw new Error("--visual-qa <visual-qa.json> is required before formal copy preparation or draft creation.");
+  if (prepareOnlyExplicit && createDraftExplicit) throw new Error("Use either --prepare-only or --create-draft, not both.");
   if (a.cover && a.genCover) throw new Error("Use either --cover or --gen-cover, not both.");
   if (a.prepareOnly && (a.cover || a.genCover)) {
     throw new Error("--prepare-only does not create or upload a cover. Remove --cover/--gen-cover.");
@@ -95,7 +112,7 @@ export interface PublisherDeps {
   uploadBodyImage(path: string, accessToken: string): Promise<string>;
   uploadCoverMaterial(path: string, accessToken: string): Promise<string>;
   addDraft(article: DraftArticle, accessToken: string): Promise<string>;
-  validateWechatHostedImage(src: string): Promise<void>;
+  validateWechatHostedImage(src: string): Promise<Buffer>;
   generateCover(
     prompt: string,
     apiKey: string,
@@ -142,21 +159,6 @@ function parseFrontmatter(raw: string): Front {
     if (kv) data[kv[1].toLowerCase()] = kv[2].replace(/^["']|["']$/g, "").trim();
   }
   return { data, body: raw.slice(m[0].length) };
-}
-
-function autoTitle(body: string): string {
-  const h = body.match(/^#{1,3}\s+(.+)$/m);
-  return h ? h[1].trim() : "";
-}
-
-function autoDigest(body: string): string {
-  const plain = body
-    .replace(/^#{1,6}\s+.*$/gm, "")
-    .replace(/[*_`>#-]/g, "")
-    .replace(/!?\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return plain.slice(0, 120);
 }
 
 // Resolve any image src (local path, remote URL, or data URI) to a local file path.
@@ -217,7 +219,7 @@ async function resolveImageToFile(src: string, articleDir: string, tempDir: stri
   return local;
 }
 
-async function validateWechatHostedImage(src: string): Promise<void> {
+async function validateWechatHostedImage(src: string): Promise<Buffer> {
   const downloaded = await safeFetchBuffer(src, {
     maxBytes: 1024 * 1024,
     timeoutMs: 20000,
@@ -228,6 +230,7 @@ async function validateWechatHostedImage(src: string): Promise<void> {
   if (!format || (format.extension !== "png" && format.extension !== "jpg")) {
     throw new Error(`Existing WeChat-hosted body image is not a real PNG/JPEG: ${src}`);
   }
+  return downloaded.buffer;
 }
 
 function isWechatHosted(src: string): boolean {
@@ -298,53 +301,126 @@ async function sha256File(path: string): Promise<string> {
   return createHash("sha256").update(await readFile(path)).digest("hex");
 }
 
-async function planRasterHashes(imagePlanPath: string): Promise<Map<string, string[]>> {
-  const parsed = JSON.parse(await readFile(imagePlanPath, "utf8")) as {
-    visuals?: Array<{ id?: string; status?: string; asset_path?: string }>;
-  };
-  const hashes = new Map<string, string[]>();
-  for (const visual of parsed.visuals || []) {
-    if (visual.status === "attempt_failed" || typeof visual.asset_path !== "string" || !visual.asset_path.trim()) continue;
-    let buffer: Buffer;
-    if (visual.asset_path.startsWith("data:image/")) {
-      const match = visual.asset_path.match(/^data:image\/(?:png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/i);
-      if (!match) continue;
-      buffer = Buffer.from(match[1], "base64");
-    } else if (/^https?:/i.test(visual.asset_path)) {
-      continue;
-    } else {
-      buffer = await readFile(resolve(dirname(imagePlanPath), visual.asset_path));
+async function mapWithConcurrency<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      await worker(items[index]);
     }
-    const format = detectImageFormat(buffer);
-    if (!format || (format.extension !== "png" && format.extension !== "jpg")) continue;
-    const hash = createHash("sha256").update(buffer).digest("hex");
-    hashes.set(hash, [...(hashes.get(hash) || []), visual.id || visual.asset_path]);
+  });
+  await Promise.all(runners);
+}
+
+interface PlannedVisual {
+  id: string;
+  order: number;
+  source_type: string;
+  status?: string;
+  asset_path: string;
+}
+
+interface ArticleVisualMarker {
+  id: string;
+  tagName: string;
+  tag: string;
+  src?: string;
+}
+
+function attributeValue(tag: string, name: string): string | undefined {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = tag.match(new RegExp(`\\s${escaped}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+  return match ? match[1] || match[2] || match[3] || "" : undefined;
+}
+
+function articleVisualMarkers(html: string): ArticleVisualMarker[] {
+  const markers: ArticleVisualMarker[] = [];
+  for (const match of html.matchAll(/<([a-z][a-z0-9]*)\b[^>]*\bdata-wlp-visual-id\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))[^>]*>/gi)) {
+    const tag = match[0];
+    markers.push({
+      id: match[2] || match[3] || match[4] || "",
+      tagName: match[1].toLowerCase(),
+      tag,
+      src: attributeValue(tag, "src"),
+    });
   }
-  return hashes;
+  return markers;
+}
+
+async function plannedVisuals(imagePlanPath: string): Promise<PlannedVisual[]> {
+  const parsed = JSON.parse(await readFile(imagePlanPath, "utf8")) as {
+    visuals?: Array<Partial<PlannedVisual>>;
+  };
+  return (parsed.visuals || [])
+    .filter((visual) => visual.status !== "attempt_failed")
+    .map((visual) => {
+      if (
+        typeof visual.id !== "string" ||
+        !visual.id ||
+        !Number.isInteger(visual.order) ||
+        typeof visual.source_type !== "string" ||
+        typeof visual.asset_path !== "string"
+      ) {
+        throw new Error("Final image plan contains a visual without id, order, source_type, or asset_path.");
+      }
+      return visual as PlannedVisual;
+    })
+    .sort((left, right) => left.order - right.order);
+}
+
+async function plannedRasterHash(imagePlanPath: string, visual: PlannedVisual): Promise<string | undefined> {
+  let buffer: Buffer;
+  if (visual.asset_path.startsWith("data:image/")) {
+    const match = visual.asset_path.match(/^data:image\/(?:png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/i);
+    if (!match) return undefined;
+    buffer = Buffer.from(match[1], "base64");
+  } else if (/^https?:/i.test(visual.asset_path)) {
+    return undefined;
+  } else {
+    buffer = await readFile(resolve(dirname(imagePlanPath), visual.asset_path));
+  }
+  const format = detectImageFormat(buffer);
+  if (!format || (format.extension !== "png" && format.extension !== "jpg")) return undefined;
+  return createHash("sha256").update(buffer).digest("hex");
 }
 
 async function assertArticleImagesMatchPlan(
   imagePlanPath: string,
+  html: string,
   bodyImageFiles: Map<string, string>,
-  hasWechatHostedImages: boolean,
 ): Promise<void> {
-  if (!bodyImageFiles.size) return;
-  const planned = await planRasterHashes(imagePlanPath);
-  const actual = new Map<string, string[]>();
-  for (const [src, path] of bodyImageFiles) {
-    const hash = await sha256File(path);
-    actual.set(hash, [...(actual.get(hash) || []), shortSrcForLog(src)]);
+  const planned = await plannedVisuals(imagePlanPath);
+  const markers = articleVisualMarkers(html);
+  const unboundImages = [...html.matchAll(/<img\b[^>]*>/gi)]
+    .map((match) => match[0])
+    .filter((tag) => !attributeValue(tag, "data-wlp-visual-id"));
+  if (unboundImages.length) {
+    throw new Error("Every article <img> must declare data-wlp-visual-id matching the final image plan.");
   }
-
-  const unplanned = [...actual].filter(([hash]) => !planned.has(hash)).flatMap(([, srcs]) => srcs);
-  if (unplanned.length) {
-    throw new Error(`Article contains body images that are not registered in the final image plan: ${unplanned.join(", ")}`);
+  const plannedIds = planned.map((visual) => visual.id);
+  const markerIds = markers.map((marker) => marker.id);
+  if (plannedIds.length !== markerIds.length || plannedIds.some((id, index) => markerIds[index] !== id)) {
+    throw new Error(
+      `Article visual identity/order does not match the final image plan. Planned: ${plannedIds.join(", ") || "(none)"}; article: ${markerIds.join(", ") || "(none)"}.`,
+    );
   }
-
-  if (!hasWechatHostedImages) {
-    const unused = [...planned].filter(([hash]) => !actual.has(hash)).flatMap(([, ids]) => ids);
-    if (unused.length) {
-      throw new Error(`Final image plan contains raster visuals that are not placed in the article body: ${unused.join(", ")}`);
+  for (const [index, visual] of planned.entries()) {
+    const marker = markers[index];
+    const plannedHash = await plannedRasterHash(imagePlanPath, visual);
+    if (!plannedHash) {
+      if (visual.source_type !== "coded_visual") {
+        throw new Error(`Final image plan visual ${visual.id} must resolve to a local/data PNG or JPEG for content binding.`);
+      }
+      continue;
+    }
+    if (marker.tagName !== "img" || !marker.src) {
+      throw new Error(`Raster visual ${visual.id} must place data-wlp-visual-id on its actual <img> element.`);
+    }
+    const file = bodyImageFiles.get(marker.src);
+    if (!file) throw new Error(`Could not resolve article image for visual ${visual.id}: ${shortSrcForLog(marker.src)}`);
+    const actualHash = await sha256File(file);
+    if (actualHash !== plannedHash) {
+      throw new Error(`Article image for visual ${visual.id} does not match the asset registered in the final image plan.`);
     }
   }
 }
@@ -505,11 +581,24 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
   try {
     const articleDir = dirname(inputPath);
     const isHtml = /\.html?$/i.test(inputPath);
-    if (isHtml && !args.sourceArticle) {
+    if (!isHtml) {
+      throw new Error(
+        "Formal copy preparation and draft creation require component HTML. Markdown rendering is limited to local working previews; create and review the final HTML first.",
+      );
+    }
+    if (!args.sourceArticle) {
       throw new Error("--source-article <original article> is required when publishing generated HTML.");
     }
     const imagePlanPath = resolve(process.cwd(), args.imagePlan!);
     if (!existsSync(imagePlanPath)) throw new Error(`Image plan not found: ${imagePlanPath}`);
+    let contentMode = "";
+    try {
+      const imagePlan = JSON.parse(readFileSync(imagePlanPath, "utf8")) as { content_mode?: unknown };
+      if (imagePlan.content_mode === "rewrite" || imagePlan.content_mode === "preserve") contentMode = imagePlan.content_mode;
+    } catch (error) {
+      throw new Error(`Invalid image plan JSON: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!contentMode) throw new Error("image-plan.json must record content_mode as rewrite or preserve.");
     const sourceArticlePath = resolve(process.cwd(), args.sourceArticle || args.input);
     if (!existsSync(sourceArticlePath)) throw new Error(`Source article not found: ${sourceArticlePath}`);
     const allowedRoots = [articleDir, ...args.assetDirs.map((dir) => resolve(process.cwd(), dir))].map((dir) => {
@@ -519,29 +608,24 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
     const raw = await readFile(inputPath, "utf8");
     const { data: fm, body } = parseFrontmatter(raw);
 
-    let html: string;
-    if (isHtml) {
-      html = extractArticleHtml(body);
-      console.log("▶ Using hand-written HTML article (component layout)...");
-    } else {
-      html = renderArticle(body);
-      console.log("▶ Rendering markdown → WeChat-compliant HTML (fallback theme)...");
-    }
+    let html = extractArticleHtml(body);
+    console.log("▶ Using hand-written HTML article (component layout)...");
 
-    const title = args.title || fm.title || (isHtml ? htmlTitle(html) : autoTitle(body));
+    const title = args.title || fm.title || htmlTitle(html);
     if (!title) throw new Error("No title found. Pass --title or add a frontmatter title.");
     const author = args.author || fm.author || "";
-    const digest =
-      args.digest || fm.description || fm.summary || fm.digest || (isHtml ? htmlDigest(html) : autoDigest(body));
+    const digest = args.digest || fm.description || fm.summary || fm.digest || htmlDigest(html);
 
     const preflightPath = join(tempDir, "article-preflight.html");
     await writeFile(preflightPath, html, "utf8");
     runVerifier(scriptDir, "verify-article.mjs", preflightPath, false, [
       "--complete-package",
+      "--content-mode",
+      contentMode,
       "--source-article",
       sourceArticlePath,
     ]);
-    runVerifier(scriptDir, "verify-copy.mjs", preflightPath, true);
+    runVerifier(scriptDir, "verify-copy.mjs", preflightPath, true, contentMode === "rewrite" ? ["--strict"] : []);
     runVerifier(scriptDir, "validate-image-plan.mjs", imagePlanPath, true, [
       "--stage",
       "final",
@@ -550,6 +634,8 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
       "--check-files",
       ...(args.allowEvidenceFailure ? ["--allow-evidence-failure"] : []),
     ]);
+    await validateVisualQaReceipt(resolve(process.cwd(), args.visualQa!), html);
+    console.log("▶ Visual QA receipt matches the current article and includes mobile first-screen/full-page screenshots.");
 
     let coverPath = "";
     if (!args.prepareOnly) {
@@ -610,14 +696,25 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
       console.log(`  ✓ 2.35:1 cover prepared: ${coverPath}`);
     }
 
-    for (const src of srcs) {
-      if (/^https?:\/\//i.test(src)) {
+    await mapWithConcurrency(
+      srcs.filter((src) => /^https?:\/\//i.test(src)),
+      4,
+      async (src) => {
         bodyImageFiles.set(src, await resolveImageToFile(src, articleDir, tempDir, allowedRoots));
+      },
+    );
+    await mapWithConcurrency(wechatHostedSrcs, 4, async (src) => {
+      const buffer = await deps.validateWechatHostedImage(src);
+      const format = detectImageFormat(buffer);
+      if (!format || (format.extension !== "png" && format.extension !== "jpg")) {
+        throw new Error(`Existing WeChat-hosted body image is not a real PNG/JPEG: ${src}`);
       }
-    }
+      const path = join(tempDir, `wechat-hosted-${Math.random().toString(36).slice(2)}.${format.extension}`);
+      await writeFile(path, buffer);
+      bodyImageFiles.set(src, path);
+    });
 
-    await assertArticleImagesMatchPlan(imagePlanPath, bodyImageFiles, wechatHostedSrcs.length > 0);
-    for (const src of wechatHostedSrcs) await deps.validateWechatHostedImage(src);
+    await assertArticleImagesMatchPlan(imagePlanPath, html, bodyImageFiles);
 
     console.log(`▶ Title: ${title}`);
     const pendingUploads: Array<{ src: string; file: string; sha256: string; source: string }> = [];

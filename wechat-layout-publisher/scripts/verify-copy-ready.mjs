@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 function usage() {
   console.error("Usage: node verify-copy-ready.mjs [--allow-remote] [--allow-data-uri] <preview-or-fragment.html>");
@@ -10,6 +13,16 @@ const allowRemote = process.argv.includes("--allow-remote");
 const allowDataUri = process.argv.includes("--allow-data-uri");
 const file = process.argv.slice(2).find((arg) => arg !== "--allow-remote" && arg !== "--allow-data-uri");
 if (!file) usage();
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const articleCheck = spawnSync(process.execPath, [resolve(scriptDir, "verify-article.mjs"), file], {
+  cwd: scriptDir,
+  encoding: "utf8",
+});
+if (articleCheck.status !== 0) {
+  console.error(`${articleCheck.stdout || ""}${articleCheck.stderr || ""}`.trim() || "Article safety verification failed.");
+  process.exit(1);
+}
 
 function isWechatHosted(src) {
   try {

@@ -2,6 +2,8 @@
 
 文章母版、最终 `image-plan.json` 和视觉检查完成后，使用本流程。同一份文章正文支持两种最终交付：正式可复制版，以及仅在用户要求时创建的草稿箱版。
 
+`image-plan.json` 必须记录开局选择的 `content_mode`。`preserve` 会在任何微信请求前核对源文字符与顺序，检测到删改或调序立即停止；`rewrite` 允许改写，但仍使用源文章做内容分类、证据和事实边界检查。
+
 ## 目录
 
 - 前置条件与首次设置
@@ -109,12 +111,23 @@ OPENAI_IMAGE_MODEL=gpt-image-2
 
 这是普通排版或复制任务默认先交付的用户成品。只有内部本地预览已在 `375-390px` 宽度完成人工视觉审查后才执行。它会上传或复用正文图，验证全部正文图都使用有效微信主机，写出正文片段和预览外壳；绝不上传封面，也绝不调用 `draft/add`。
 
-重要：`publish.ts` 默认进入草稿模式。首轮正式可复制交付必须显式传入 `--prepare-only`；漏写该参数会改变交付状态。
+先保存同一移动宽度的首屏截图和整页截图，再生成与当前正文哈希绑定的视觉 QA 回执。截图与回执放在同一目录：
+
+```bash
+cd scripts
+npm run record-visual-qa -- \
+  --article <article.html> \
+  --viewport-screenshot <output/qa-mobile.png> \
+  --full-page-screenshot <output/qa-full-page.png> \
+  --width 390 --out <output/visual-qa.json> --confirm-reviewed
+```
+
+`publish.ts` 默认进入正式准备模式。保留 `--prepare-only` 作为可读性更强的显式写法；即使漏写它，也不会创建草稿。
 
 ```bash
 cd scripts
 npx tsx publish.ts <article.html> --prepare-only \
-  --image-plan <image-plan.json> --source-article <source-article.md> \
+  --image-plan <image-plan.json> --source-article <source-article.md> --visual-qa <output/visual-qa.json> \
   --upload-manifest <output/upload-manifest.json> \
   --write-uploaded-fragment <output/article-fragment-wechat.html> \
   --write-copy-ready <output/preview-wechat-copy.html>
@@ -124,12 +137,13 @@ npx tsx publish.ts <article.html> --prepare-only \
 
 ### 用已准备正文创建草稿
 
-用户确认后，把准备好的正文片段交回同一个命令，不加 `--prepare-only`。脚本只提取 `ARTICLE HTML START/END` 之间的内容，验证已有微信图片 URL，上传封面，再把完全相同的正文发送到 `draft/add`。
+用户确认后，重新打开正式可复制预览，保存首屏与整页截图，并为准备好的正文片段生成一份匹配其微信图片 URL 的新视觉 QA 回执。随后显式传入 `--create-draft`。脚本只提取 `ARTICLE HTML START/END` 之间的内容，验证微信图片真实字节与最终计划一致，上传封面，再把完全相同的正文发送到 `draft/add`。
 
 ```bash
 cd scripts
-npx tsx publish.ts <output/article-fragment-wechat.html> \
+npx tsx publish.ts <output/article-fragment-wechat.html> --create-draft \
   --image-plan <image-plan.json> --source-article <source-article.md> \
+  --visual-qa <output/visual-qa-wechat.json> \
   --title "标题" --author "作者" --cover <cover-900x383.png>
 ```
 
@@ -137,11 +151,12 @@ npx tsx publish.ts <output/article-fragment-wechat.html> \
 
 ### 直接创建草稿
 
-用户明确要求直接进入草稿箱时，对本地验证通过的文章母版运行默认草稿模式：
+用户明确要求直接进入草稿箱时，对本地验证通过的文章母版显式使用 `--create-draft`：
 
 ```bash
 cd scripts
-npx tsx publish.ts <article.html> --image-plan <image-plan.json> --source-article <source-article.md> \
+npx tsx publish.ts <article.html> --create-draft --image-plan <image-plan.json> --source-article <source-article.md> \
+  --visual-qa <output/visual-qa.json> \
   --title "标题" --author "作者" --cover <cover-900x383.png> \
   --upload-manifest <output/upload-manifest.json>
 ```
@@ -170,11 +185,11 @@ npx tsx publish.ts <article.html> --image-plan <image-plan.json> --source-articl
 <!-- ARTICLE HTML END -->
 ```
 
-草稿模式只上传没有有效 manifest 记录或有效微信 URL 的正文图片，然后通过 `material/add_material` 上传封面，再调用 `draft/add`。
+只有 `--create-draft` 会进入草稿模式。该模式只上传没有有效 manifest 记录或有效微信 URL 的正文图片，然后通过 `material/add_material` 上传封面，再调用 `draft/add`。
 
-在 token、上传或草稿 API 调用前，`publish.ts` 会验证文章安全、最终图片计划、图片计划与正文图的内容哈希一致性、本地正文图、允许的本地素材边界和 `900 x 383` 封面裁切。受保护远程下载器会检查公网路由、重定向、超时、大小、MIME 与文件签名。`--allow-evidence-failure` 只适用于最终计划中所有证据尝试都真实记录访问失败的情况。
+在 token、上传或草稿 API 调用前，`publish.ts` 会验证文章安全、最终图片计划、视觉 QA 回执、素材边界和 `900 x 383` 封面裁切。每个视觉必须用 `data-wlp-visual-id` 与计划按顺序绑定；所有位图都以真实字节核对内容哈希，包括微信托管 URL。受保护远程下载器会检查公网路由、重定向、超时、大小、MIME 与文件签名。`--allow-evidence-failure` 只适用于最终计划中所有证据尝试都结构化记录真实访问失败的情况。
 
-`--image-plan` 为必填。HTML 输入还必须提供 `--source-article`，让语义分类器读取原始文章而非改写后的输出；Markdown 输入可使用自身。本地图片只能位于文章目录，或显式 `--asset-dir` 指定的目录，防止文章 HTML 上传无关文件。
+`publish.ts` 的正式可复制版与草稿箱入口只接受已经完成组件排版和视觉审查的 HTML；Markdown 自动渲染只用于内部工作预览，不得绕过组件层直接进入正式交付。`--image-plan`、`--visual-qa` 与 `--source-article` 均为必填，语义分类器始终读取原始文章而非排版输出。本地图片只能位于文章目录，或显式 `--asset-dir` 指定的目录，防止文章 HTML 上传无关文件。
 
 `--gen-cover` 会生成无文字横向底图，把它裁成准确的 `900 x 383` JPEG，再在左侧安静构图区通过可控 SVG 层合成真实标题。用 `--cover-prompt` 传入语义隐喻或视觉方向。
 

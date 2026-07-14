@@ -2,18 +2,22 @@
 import { readFileSync } from "node:fs";
 
 function usage() {
-  console.error("Usage: node verify-article.mjs [--complete-package] [--source-article <source>] <preview-or-fragment.html>");
+  console.error("Usage: node verify-article.mjs [--complete-package] [--content-mode rewrite|preserve] [--source-article <source>] <preview-or-fragment.html>");
   process.exit(2);
 }
 
 const args = process.argv.slice(2);
 const completePackage = args.includes("--complete-package");
 let sourceArticle = "";
+let contentMode = "";
 let file = "";
 for (let index = 0; index < args.length; index++) {
   const arg = args[index];
   if (arg === "--complete-package") continue;
-  if (arg === "--source-article") {
+  if (arg === "--content-mode") {
+    contentMode = args[++index] || "";
+    if (!new Set(["rewrite", "preserve"]).has(contentMode)) usage();
+  } else if (arg === "--source-article") {
     sourceArticle = args[++index] || "";
     if (!sourceArticle) usage();
   } else if (arg.startsWith("--")) {
@@ -23,6 +27,75 @@ for (let index = 0; index < args.length; index++) {
   else usage();
 }
 if (!file) usage();
+if (completePackage && !contentMode) {
+  console.error("FAIL complete package requires --content-mode rewrite or preserve.");
+  process.exit(1);
+}
+if (contentMode === "preserve" && !sourceArticle) {
+  console.error("FAIL preserve mode requires --source-article.");
+  process.exit(1);
+}
+
+function decodeHtmlEntities(value) {
+  const named = new Map([
+    ["amp", "&"],
+    ["lt", "<"],
+    ["gt", ">"],
+    ["quot", '"'],
+    ["apos", "'"],
+    ["nbsp", " "],
+  ]);
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity) => {
+    if (entity[0] === "#") {
+      const hex = entity[1].toLowerCase() === "x";
+      const codePoint = Number.parseInt(entity.slice(hex ? 2 : 1), hex ? 16 : 10);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match;
+    }
+    return named.get(entity.toLowerCase()) ?? match;
+  });
+}
+
+function visibleHtmlText(value) {
+  return decodeHtmlEntities(
+    value
+      .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+      .replace(/<!--([\s\S]*?)-->/g, " ")
+      .replace(/<[^>]+>/g, " "),
+  );
+}
+
+function visibleSourceText(value) {
+  const withoutFrontmatter = value.replace(/^---\s*\n[\s\S]*?\n---\s*(?:\n|$)/, "");
+  if (/<(?:p|h[1-6]|section|article|div|li|blockquote|table)\b/i.test(withoutFrontmatter)) {
+    return visibleHtmlText(withoutFrontmatter);
+  }
+  return decodeHtmlEntities(
+    withoutFrontmatter
+      .replace(/!\[[^\]]*\]\([^\n)]*\)/g, " ")
+      .replace(/\[([^\]]+)\]\([^\n)]*\)/g, "$1")
+      .replace(/^\s*```[^\n]*$/gm, "")
+      .replace(/^\s*(?:#{1,6}|>|[-+*]|\d+[.)])\s+/gm, "")
+      .replace(/^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*$/gm, "")
+      .replace(/[*_~`]([^\n]*?)[*_~`]/g, "$1"),
+  );
+}
+
+function compactVisibleText(value) {
+  return value.normalize("NFC").replace(/\s+/gu, "");
+}
+
+function approvedAddedNodes(value) {
+  return [...value.matchAll(/<(h1|p|figcaption)\b([^>]*)\bdata-wlp-added\s*=\s*(?:"(title|subtitle|caption|source)"|'(title|subtitle|caption|source)'|(title|subtitle|caption|source))([^>]*)>([\s\S]*?)<\/\1>/gi)].map(
+    (match) => ({
+      full: match[0],
+      tag: match[1].toLowerCase(),
+      role: match[3] || match[4] || match[5],
+      text: visibleHtmlText(match[7]).replace(/\s+/g, " ").trim(),
+      index: match.index || 0,
+    }),
+  );
+}
 
 const raw = readFileSync(file, "utf8");
 const marker = raw.match(/<!--\s*ARTICLE HTML START\s*-->([\s\S]*?)<!--\s*ARTICLE HTML END\s*-->/i);
@@ -36,11 +109,15 @@ const checks = [
   { name: "no inline event handlers", re: /\son[a-z]+\s*=/i },
   { name: "no external stylesheet in article body", re: /<link[^>]+stylesheet/i },
   { name: "no iframe/object/embed/form/input", re: /<(iframe|object|embed|form|input)[\s>]/i },
+  { name: "no picture/source/meta/base resource elements", re: /<(picture|source|meta|base)[\s>]/i },
+  { name: "no alternate resource attributes", re: /\s(?:srcset|poster|background)\s*=/i },
+  { name: "no hidden attribute", re: /\shidden(?:\s|=|>)/i },
   { name: "no javascript/vbscript URLs", re: /\s(?:href|src|xlink:href)\s*=\s*(["']?)\s*(?:javascript|vbscript)\s*:/i },
   { name: "no HTML data URLs", re: /\s(?:href|src|xlink:href)\s*=\s*(["']?)\s*data\s*:\s*text\/html/i },
   { name: "no CSS position in article body", re: /style\s*=\s*(["'])[\s\S]*?position\s*:/i },
   { name: "no transform/animation in article body", re: /style\s*=\s*(["'])[\s\S]*?(transform|animation|@media|@keyframes)\s*[:{]/i },
   { name: "no CSS url() or expression()", re: /style\s*=\s*(["'])[\s\S]*?(?:url\s*\(|expression\s*\()/i },
+  { name: "no visually hidden content", re: /style\s*=\s*(["'])[\s\S]*?(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\D|$)|font-size\s*:\s*0(?:\D|$))/i },
 ];
 
 let failed = 0;
@@ -55,6 +132,58 @@ for (const check of checks) {
   const end = Math.min(body.length, (match.index || 0) + 140);
   console.log(`FAIL ${check.name}`);
   console.log(body.slice(start, end).replace(/\s+/g, " ").trim());
+}
+
+if (contentMode === "preserve") {
+  const source = compactVisibleText(visibleSourceText(readFileSync(sourceArticle, "utf8")));
+  const additions = approvedAddedNodes(body);
+  const markerCount = (body.match(/\bdata-wlp-added\s*=/gi) || []).length;
+  if (markerCount !== additions.length) {
+    failed++;
+    console.log("FAIL preserve mode data-wlp-added is allowed only on h1, p, or figcaption with title/subtitle/caption/source.");
+  }
+  const roleCounts = new Map();
+  const firstImageIndex = body.search(/<img\b/i);
+  for (const addition of additions) {
+    roleCounts.set(addition.role, (roleCounts.get(addition.role) || 0) + 1);
+    if ((addition.role === "title" && addition.tag !== "h1") || (addition.role === "subtitle" && addition.tag !== "p")) {
+      failed++;
+      console.log(`FAIL preserve mode approved ${addition.role} uses the wrong HTML element.`);
+    }
+    if ((addition.role === "title" || addition.role === "subtitle") && firstImageIndex >= 0 && addition.index > firstImageIndex) {
+      failed++;
+      console.log(`FAIL preserve mode approved ${addition.role} must appear before the first image.`);
+    }
+    if (addition.role === "caption" && !/^图注[：:]/.test(addition.text)) {
+      failed++;
+      console.log("FAIL preserve mode added captions must begin with 图注：.");
+    }
+    if (addition.role === "source" && !/^来源[：:]/.test(addition.text)) {
+      failed++;
+      console.log("FAIL preserve mode added source labels must begin with 来源：.");
+    }
+    const maxLength = addition.role === "title" ? 64 : addition.role === "subtitle" ? 100 : 200;
+    if (!addition.text || addition.text.length > maxLength) {
+      failed++;
+      console.log(`FAIL preserve mode added ${addition.role} is empty or implausibly long.`);
+    }
+  }
+  if ((roleCounts.get("title") || 0) > 1 || (roleCounts.get("subtitle") || 0) > 1) {
+    failed++;
+    console.log("FAIL preserve mode permits at most one approved added title and subtitle.");
+  }
+  let comparableBody = body;
+  for (const addition of additions) comparableBody = comparableBody.replace(addition.full, " ");
+  const output = compactVisibleText(visibleHtmlText(comparableBody));
+  if (!source) {
+    failed++;
+    console.log("FAIL preserve mode could not extract visible source copy.");
+  } else if (source !== output) {
+    failed++;
+    console.log("FAIL preserve mode changed, deleted, reordered, or added unapproved source copy.");
+  } else {
+    console.log(`PASS preserve mode exactly retained source copy; approved additions: ${additions.length}.`);
+  }
 }
 
 if (completePackage) {

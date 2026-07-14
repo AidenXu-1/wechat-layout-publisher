@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,7 +30,7 @@ try {
     "base64",
   );
   await sharp({ create: { width: 900, height: 383, channels: 3, background: "#efe6d9" } }).png().toFile(join(tmp, "hero.png"));
-  writeFileSync(join(tmp, "evidence.png"), tinyPng);
+  await sharp({ create: { width: 640, height: 360, channels: 3, background: "#ffffff" } }).png().toFile(join(tmp, "evidence.png"));
   await sharp({ create: { width: 900, height: 383, channels: 3, background: "#d68163" } })
     .png()
     .toFile(join(tmp, "external-hero.png"));
@@ -100,6 +101,7 @@ try {
     newsPlan,
     JSON.stringify({
       runtime: "codex",
+      content_mode: "rewrite",
       image_generation_capability: "available",
       image_generation_tool: "imagegen",
       content_type: "news_event",
@@ -131,6 +133,8 @@ try {
           source_url: "https://example.com/official",
           source_tier: "official",
           status: "captured",
+          captured_at: "2026-07-14T00:00:00.000Z",
+          asset_sha256: `sha256:${createHash("sha256").update(readFileSync(join(tmp, "evidence.png"))).digest("hex")}`,
           asset_path: "evidence.png",
         },
       ],
@@ -178,6 +182,7 @@ try {
     badNewsPlan,
     JSON.stringify({
       runtime: "codex",
+      content_mode: "rewrite",
       image_generation_capability: "available",
       image_generation_tool: "imagegen",
       content_type: "news_event",
@@ -213,6 +218,7 @@ try {
     skippedUserAssetPlan,
     JSON.stringify({
       runtime: "codex",
+      content_mode: "rewrite",
       image_generation_capability: "available",
       image_generation_tool: "imagegen",
       content_type: "experience",
@@ -261,6 +267,7 @@ try {
   const fallbackPlan = join(tmp, "fallback-plan.json");
   const fallback = {
     runtime: "generic-agent",
+    content_mode: "preserve",
     image_generation_capability: "unavailable",
     generation_capability_notice: "This Agent cannot generate bitmap images. A coded preview is ready for user choice.",
     content_type: "opinion",
