@@ -117,7 +117,8 @@ try {
           role: "hero",
           source_type: "generated_image",
           semantic_reason: "editorial metaphor for the event tension",
-          prompt: "editorial metaphor without text",
+          title_text: "事件测试标题",
+          prompt: "2.35:1 editorial metaphor with the exact title integrated",
           provider: "imagegen",
           status: "ready",
           asset_path: "hero.png",
@@ -242,7 +243,8 @@ try {
           role: "hero",
           source_type: "generated_image",
           semantic_reason: "sets the project mood",
-          prompt: "editorial project still life",
+          title_text: "项目复盘测试标题",
+          prompt: "2.35:1 editorial project still life with the exact title integrated",
           provider: "imagegen",
           status: "ready",
           asset_path: "images/hero.jpg",
@@ -293,14 +295,14 @@ try {
     ],
   };
   writeFileSync(fallbackPlan, JSON.stringify(fallback));
-  run(["validate-image-plan.mjs", "--stage", "plan", fallbackPlan]);
+  run(["validate-image-plan.mjs", "--stage", "plan", fallbackPlan], 1);
   run(["validate-image-plan.mjs", "--stage", "final", fallbackPlan], 1);
 
   fallback.visuals[0].user_decision = "accept_current";
   fallback.visuals[0].status = "ready";
   fallback.visuals[0].asset_path = "hero.png";
   writeFileSync(fallbackPlan, JSON.stringify(fallback));
-  run(["validate-image-plan.mjs", "--stage", "final", fallbackPlan]);
+  run(["validate-image-plan.mjs", "--stage", "final", fallbackPlan], 1);
 
   const unavailableGeneratedPlan = join(tmp, "unavailable-generated-plan.json");
   const unavailableGenerated = JSON.parse(JSON.stringify(fallback));
@@ -312,7 +314,8 @@ try {
     role: "hero",
     source_type: "generated_image",
     semantic_reason: "desired editorial metaphor",
-    prompt: "editorial metaphor",
+    title_text: "外部生成的测试标题",
+    prompt: "2.35:1 editorial metaphor with the exact title integrated",
     provider: "unavailable",
     status: "planned",
   };

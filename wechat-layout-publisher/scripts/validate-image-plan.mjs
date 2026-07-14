@@ -332,10 +332,10 @@ for (const [index, visual] of visuals.entries()) {
 }
 
 const firstVisual = [...visuals].sort((a, b) => (a.order || 0) - (b.order || 0))[0];
-const firstIsGeneratedFallback = firstVisual?.source_type === "coded_visual" && firstVisual?.fallback_for === "generated_image";
-if (firstVisual?.source_type === "coded_visual" && !firstIsGeneratedFallback) {
-  issues.push("The first visual must not be a coded_visual; use a relevant user asset, evidence image, or generated editorial image.");
-}
+if (firstVisual?.source_type !== "generated_image") issues.push("The first visual must use source_type=generated_image.");
+if (firstVisual?.role !== "hero") issues.push("The first visual must use role=hero.");
+if (!nonEmpty(firstVisual?.title_text)) issues.push("The first visual must record the exact integrated article title in title_text.");
+if (stage === "final" && firstVisual?.status !== "ready") issues.push("The generated hero must have status=ready at final stage.");
 if (
   stage === "final" &&
   checkFiles &&

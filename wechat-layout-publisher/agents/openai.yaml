@@ -1,4 +1,4 @@
 interface:
   display_name: "公众号排版发布"
-  short_description: "微信公众号排版、四路语义配图、正式可复制版与草稿箱交付"
-  default_prompt: "使用 $wechat-layout-publisher 处理公众号文章；开局先确认选择粗稿改写并排版，或原文锁定只排版，再完成配图、视觉检查和正式可复制版，仅在用户要求时创建草稿。"
+  short_description: "公众号排版、生图首图、正式可复制版与草稿箱交付"
+  default_prompt: "使用 $wechat-layout-publisher 处理公众号文章；开局先选择粗稿改写并排版，或原文锁定只排版，再制作带准确标题的 2.35:1 生图首图、语义配图、视觉检查和正式可复制版，仅在用户要求时创建草稿。"

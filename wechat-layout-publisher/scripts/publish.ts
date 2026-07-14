@@ -118,7 +118,6 @@ export interface PublisherDeps {
     apiKey: string,
     model: string,
     outPath: string,
-    title?: string,
   ): Promise<string>;
   now(): string;
 }
@@ -316,6 +315,8 @@ interface PlannedVisual {
   id: string;
   order: number;
   source_type: string;
+  role: string;
+  title_text?: string;
   status?: string;
   asset_path: string;
 }
@@ -359,9 +360,10 @@ async function plannedVisuals(imagePlanPath: string): Promise<PlannedVisual[]> {
         !visual.id ||
         !Number.isInteger(visual.order) ||
         typeof visual.source_type !== "string" ||
+        typeof visual.role !== "string" ||
         typeof visual.asset_path !== "string"
       ) {
-        throw new Error("Final image plan contains a visual without id, order, source_type, or asset_path.");
+        throw new Error("Final image plan contains a visual without id, order, role, source_type, or asset_path.");
       }
       return visual as PlannedVisual;
     })
@@ -391,6 +393,16 @@ async function assertArticleImagesMatchPlan(
 ): Promise<void> {
   const planned = await plannedVisuals(imagePlanPath);
   const markers = articleVisualMarkers(html);
+  const hero = planned[0];
+  const articleTitle = htmlTitle(html);
+  if (
+    !hero ||
+    hero.role !== "hero" ||
+    hero.source_type !== "generated_image" ||
+    hero.title_text?.trim() !== articleTitle
+  ) {
+    throw new Error("The first visual must be a generated hero whose title_text exactly matches the article H1.");
+  }
   const unboundImages = [...html.matchAll(/<img\b[^>]*>/gi)]
     .map((match) => match[0])
     .filter((tag) => !attributeValue(tag, "data-wlp-visual-id"));
@@ -691,7 +703,6 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
         key,
         args.model || credentials.openaiImageModel || "gpt-image-2",
         join(tempDir, "wechat-headline-cover.jpg"),
-        title,
       );
       console.log(`  ✓ 2.35:1 cover prepared: ${coverPath}`);
     }
