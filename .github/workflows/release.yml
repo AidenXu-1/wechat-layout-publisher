@@ -1,0 +1,84 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Validate and publish
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wechat-layout-publisher/scripts
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: wechat-layout-publisher/scripts/package-lock.json
+
+      - name: Verify tag is documented
+        working-directory: .
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          grep -F "## ${VERSION} -" CHANGELOG.md
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Skill
+        run: |
+          npm run validate-skill
+          npm run typecheck
+          npm test
+          npm run quick-validate
+          npm run diagnose-credentials
+
+      - name: Build clean release archives
+        working-directory: .
+        shell: bash
+        run: |
+          STABLE_ASSET="wechat-layout-publisher.zip"
+          VERSIONED_ASSET="wechat-layout-publisher-${GITHUB_REF_NAME}.zip"
+          git archive \
+            --format=zip \
+            --prefix=wechat-layout-publisher/ \
+            HEAD:wechat-layout-publisher \
+            > "$STABLE_ASSET"
+          cp "$STABLE_ASSET" "$VERSIONED_ASSET"
+          sha256sum "$STABLE_ASSET" > "${STABLE_ASSET}.sha256"
+          sha256sum "$VERSIONED_ASSET" > "${VERSIONED_ASSET}.sha256"
+
+      - name: Create or update GitHub Release
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          NOTES_FILE="RELEASE_NOTES_${GITHUB_REF_NAME}.md"
+          ASSETS=(
+            "wechat-layout-publisher.zip"
+            "wechat-layout-publisher.zip.sha256"
+            "wechat-layout-publisher-${GITHUB_REF_NAME}.zip"
+            "wechat-layout-publisher-${GITHUB_REF_NAME}.zip.sha256"
+          )
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${ASSETS[@]}" --clobber
+          elif [[ -f "$NOTES_FILE" ]]; then
+            gh release create "$GITHUB_REF_NAME" "${ASSETS[@]}" \
+              --title "wechat-layout-publisher ${GITHUB_REF_NAME}" \
+              --notes-file "$NOTES_FILE"
+          else
+            gh release create "$GITHUB_REF_NAME" "${ASSETS[@]}" \
+              --title "wechat-layout-publisher ${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi

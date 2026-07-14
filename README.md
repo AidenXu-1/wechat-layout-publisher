@@ -18,6 +18,15 @@
 
 环境要求：Node.js `18.17+`、npm，以及支持本地 Skill 的智能体。
 
+普通用户和自动安装 Agent 建议使用始终指向最新正式版本的入口：
+
+- [查看最新正式版本](https://github.com/AidenXu-1/wechat-layout-publisher/releases/latest)
+- [直接下载最新纯净 Skill 包](https://github.com/AidenXu-1/wechat-layout-publisher/releases/latest/download/wechat-layout-publisher.zip)
+
+下载并解压后，将其中的 `wechat-layout-publisher/` 文件夹放到 `~/.codex/skills/`，再进入其 `scripts` 目录执行 `npm ci --omit=dev`。
+
+需要源码仓库时，可以使用下面的安装方式。无版本号的克隆命令会跟随 `main` 的最新源码。
+
 macOS 或 Linux：
 
 ```bash
