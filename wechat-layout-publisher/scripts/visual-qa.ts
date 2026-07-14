@@ -15,6 +15,8 @@ export interface VisualQaReceipt {
   full_page_sha256: string;
   first_screen_checked: true;
   full_page_checked: true;
+  hero_title_exact: true;
+  hero_text_integrated: true;
   status: "passed";
   unresolved_issues: [];
   reviewed_at: string;
@@ -83,6 +85,9 @@ export async function validateVisualQaReceipt(receiptPath: string, articleHtml: 
   if (receipt.first_screen_checked !== true || receipt.full_page_checked !== true || receipt.status !== "passed") {
     throw new Error("Visual QA receipt must confirm both the first screen and full page with status=passed.");
   }
+  if (receipt.hero_title_exact !== true || receipt.hero_text_integrated !== true) {
+    throw new Error("Visual QA receipt must confirm the hero uses the exact title and integrates it into the composition.");
+  }
   if (!Array.isArray(receipt.unresolved_issues) || receipt.unresolved_issues.length !== 0) {
     throw new Error("Visual QA receipt still contains unresolved issues.");
   }
@@ -113,10 +118,21 @@ interface CliArgs {
   width: number;
   out: string;
   confirmed: boolean;
+  heroTitleConfirmed: boolean;
+  heroIntegrationConfirmed: boolean;
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { article: "", viewport: "", fullPage: "", width: 0, out: "", confirmed: false };
+  const args: CliArgs = {
+    article: "",
+    viewport: "",
+    fullPage: "",
+    width: 0,
+    out: "",
+    confirmed: false,
+    heroTitleConfirmed: false,
+    heroIntegrationConfirmed: false,
+  };
   const value = (flag: string, index: number): string => {
     const next = argv[index + 1];
     if (!next || next.startsWith("--")) throw new Error(`Missing value for ${flag}`);
@@ -130,11 +146,21 @@ function parseArgs(argv: string[]): CliArgs {
     else if (arg === "--width") args.width = Number(value(arg, index++));
     else if (arg === "--out") args.out = value(arg, index++);
     else if (arg === "--confirm-reviewed") args.confirmed = true;
+    else if (arg === "--confirm-hero-title") args.heroTitleConfirmed = true;
+    else if (arg === "--confirm-hero-integration") args.heroIntegrationConfirmed = true;
     else throw new Error(`Unknown option: ${arg}`);
   }
-  if (!args.article || !args.viewport || !args.fullPage || !args.out || !args.confirmed) {
+  if (
+    !args.article ||
+    !args.viewport ||
+    !args.fullPage ||
+    !args.out ||
+    !args.confirmed ||
+    !args.heroTitleConfirmed ||
+    !args.heroIntegrationConfirmed
+  ) {
     throw new Error(
-      "Usage: visual-qa.ts --article <article.html> --viewport-screenshot <mobile.png> --full-page-screenshot <full.png> --width <375-390> --out <visual-qa.json> --confirm-reviewed",
+      "Usage: visual-qa.ts --article <article.html> --viewport-screenshot <mobile.png> --full-page-screenshot <full.png> --width <375-390> --out <visual-qa.json> --confirm-reviewed --confirm-hero-title --confirm-hero-integration",
     );
   }
   return args;
@@ -162,6 +188,8 @@ async function runCli(argv: string[]): Promise<void> {
     full_page_sha256: await fileSha256(resolve(args.fullPage)),
     first_screen_checked: true,
     full_page_checked: true,
+    hero_title_exact: true,
+    hero_text_integrated: true,
     status: "passed",
     unresolved_issues: [],
     reviewed_at: new Date().toISOString(),

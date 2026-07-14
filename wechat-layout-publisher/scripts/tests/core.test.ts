@@ -10,7 +10,7 @@ import sharp from "sharp";
 import { prepareHeadlineCover, HEADLINE_COVER_HEIGHT, HEADLINE_COVER_WIDTH } from "../cover-image.ts";
 import { detectImageFormat } from "../image-utils.ts";
 import { assertSafeRemoteUrl, isBlockedIp } from "../safe-fetch.ts";
-import { landscapeSize } from "../imagegen.ts";
+import { coverPrompt, landscapeSize } from "../imagegen.ts";
 import { runPublish } from "../publish.ts";
 import type { PublisherDeps } from "../publish.ts";
 import { articleSha256, extractArticleFragment } from "../visual-qa.ts";
@@ -124,7 +124,8 @@ async function writeValidPlan(
       role: "hero",
       source_type: "generated_image",
       semantic_reason: "test editorial image",
-      prompt: "text-free editorial image",
+      title_text: "一个完整的测试标题",
+      prompt: "2.35:1 editorial hero with the exact title integrated into the composition",
       provider: "test-image-tool",
       status: "ready",
       asset_path: assetName,
@@ -208,7 +209,8 @@ test("image plans require content mode, runtime, data provenance, and emit densi
           role: "hero",
           source_type: "generated_image",
           semantic_reason: "sets the explanatory frame",
-          prompt: "text-free editorial image",
+          title_text: "一个完整的测试标题",
+          prompt: "2.35:1 editorial hero with the exact title integrated into the composition",
           provider: "test-image-tool",
           status: "ready",
           asset_path: "hero.png",
@@ -303,6 +305,47 @@ test("captured evidence requires provenance hash and phone-readable dimensions",
     await writeFile(planPath, JSON.stringify(plan), "utf8");
     const documentedFailure = run(true);
     assert.equal(documentedFailure.status, 0, `${documentedFailure.stdout}${documentedFailure.stderr}`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("the first visual must be a ready 2.35:1 generated hero with an integrated title record", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-generated-hero-gate-test-"));
+  try {
+    await sharp({ create: { width: 900, height: 383, channels: 3, background: "#efe6d9" } }).png().toFile(join(dir, "hero.png"));
+    const planPath = await writeValidPlan(dir, "hero.png");
+    const run = () => spawnSync(process.execPath, [
+      resolve(scriptDir, "validate-image-plan.mjs"),
+      "--stage",
+      "final",
+      "--check-files",
+      planPath,
+    ], { cwd: scriptDir, encoding: "utf8" });
+
+    let result = run();
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+
+    const plan = JSON.parse(await readFile(planPath, "utf8"));
+    delete plan.visuals[0].title_text;
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /title_text/i);
+
+    plan.visuals[0].title_text = "一个完整的测试标题";
+    plan.visuals[0].source_type = "user_asset";
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /first visual must use source_type=generated_image/i);
+
+    plan.visuals[0].source_type = "generated_image";
+    plan.visuals[0].status = "captured";
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /generated hero must have status=ready/i);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -490,6 +533,8 @@ async function writeVisualQa(dir: string, article: string, suffix = ""): Promise
       full_page_sha256: createHash("sha256").update(await readFile(fullPagePath)).digest("hex"),
       first_screen_checked: true,
       full_page_checked: true,
+      hero_title_exact: true,
+      hero_text_integrated: true,
       status: "passed",
       unresolved_issues: [],
       reviewed_at: "2026-07-14T00:00:00.000Z",
@@ -503,7 +548,10 @@ async function writePublishFixture(dir: string, withSecondImage = false) {
   const hero = join(dir, "hero.png");
   const evidence = join(dir, "evidence.png");
   const cover = join(dir, "cover.png");
-  await sharp({ create: { width: 900, height: 383, channels: 3, background: "#d68163" } }).png().toFile(hero);
+  await sharp({ create: { width: 900, height: 383, channels: 3, background: "#efe6d9" } })
+    .composite([{ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="383"><text x="70" y="205" font-size="42" font-weight="700" fill="#252525">一个完整的测试标题</text><circle cx="760" cy="190" r="92" fill="#d68163"/></svg>`) }])
+    .png()
+    .toFile(hero);
   if (withSecondImage) {
     await sharp({ create: { width: 320, height: 240, channels: 3, background: "#8f9b83" } }).png().toFile(evidence);
   }
@@ -672,23 +720,31 @@ test("visual QA recorder validates screenshot artifacts and binds the current ar
   try {
     const fixture = await writePublishFixture(dir);
     const out = join(dir, "recorded-visual-qa.json");
+    const baseArgs = [
+      "--import",
+      "tsx",
+      resolve(scriptDir, "visual-qa.ts"),
+      "--article",
+      fixture.article,
+      "--viewport-screenshot",
+      join(dir, "qa-viewport.png"),
+      "--full-page-screenshot",
+      join(dir, "qa-full-page.png"),
+      "--width",
+      "390",
+      "--out",
+      out,
+      "--confirm-reviewed",
+    ];
+    const missingHeroReview = spawnSync(process.execPath, baseArgs, { cwd: scriptDir, encoding: "utf8" });
+    assert.notEqual(missingHeroReview.status, 0);
+    assert.match(`${missingHeroReview.stdout}${missingHeroReview.stderr}`, /confirm-hero-title/i);
     const result = spawnSync(
       process.execPath,
       [
-        "--import",
-        "tsx",
-        resolve(scriptDir, "visual-qa.ts"),
-        "--article",
-        fixture.article,
-        "--viewport-screenshot",
-        join(dir, "qa-viewport.png"),
-        "--full-page-screenshot",
-        join(dir, "qa-full-page.png"),
-        "--width",
-        "390",
-        "--out",
-        out,
-        "--confirm-reviewed",
+        ...baseArgs,
+        "--confirm-hero-title",
+        "--confirm-hero-integration",
       ],
       { cwd: scriptDir, encoding: "utf8" },
     );
@@ -696,6 +752,35 @@ test("visual QA recorder validates screenshot artifacts and binds the current ar
     const receipt = JSON.parse(await readFile(out, "utf8"));
     assert.equal(receipt.article_sha256, articleSha256(extractArticleFragment(await readFile(fixture.article, "utf8"))));
     assert.equal(receipt.status, "passed");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("formal delivery rejects a generated hero whose title record differs from the H1", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-hero-title-binding-test-"));
+  try {
+    const fixture = await writePublishFixture(dir);
+    const plan = JSON.parse(await readFile(fixture.imagePlan, "utf8"));
+    plan.visuals[0].title_text = "不一致的标题";
+    await writeFile(fixture.imagePlan, JSON.stringify(plan), "utf8");
+    const { calls, deps } = publisherMock();
+    await assert.rejects(
+      () => runPublish([
+        fixture.article,
+        "--prepare-only",
+        "--image-plan",
+        fixture.imagePlan,
+        "--source-article",
+        fixture.source,
+        "--visual-qa",
+        fixture.visualQa,
+        "--write-uploaded-fragment",
+        join(dir, "prepared.html"),
+      ], deps),
+      /title_text exactly matches the article H1/i,
+    );
+    assert.deepEqual(calls, { token: 0, body: [], cover: [], drafts: [], validated: [] });
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -1238,22 +1323,13 @@ test("rewrite delivery treats copy-density and AI-smell warnings as blocking", a
   }
 });
 
-test("generated cover title composition stays at 900x383", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "wechat-cover-title-test-"));
-  try {
-    const input = join(dir, "input.png");
-    const plain = join(dir, "plain.jpg");
-    const titled = join(dir, "titled.jpg");
-    await sharp({ create: { width: 1536, height: 1024, channels: 3, background: "#efe6d9" } }).png().toFile(input);
-    await prepareHeadlineCover(input, plain);
-    await prepareHeadlineCover(input, titled, { title: "真实标题进入安静构图区" });
-    const titledMetadata = await sharp(titled).metadata();
-    assert.equal(titledMetadata.width, 900);
-    assert.equal(titledMetadata.height, 383);
-    assert.notDeepEqual(await readFile(plain), await readFile(titled));
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
+test("generated hero prompt requires the exact title inside the composition", () => {
+  const prompt = coverPrompt("真实标题进入安静构图区", "信任裂缝的编辑隐喻");
+  assert.match(prompt, /真实标题进入安静构图区/);
+  assert.match(prompt, /exact title once/i);
+  assert.match(prompt, /2\.35:1/);
+  assert.match(prompt, /white sticker|black mask/i);
+  assert.doesNotMatch(prompt, /No text, letters/i);
 });
 
 test("default closing component does not inject a generic heading", async () => {

@@ -119,7 +119,8 @@ npm run record-visual-qa -- \
   --article <article.html> \
   --viewport-screenshot <output/qa-mobile.png> \
   --full-page-screenshot <output/qa-full-page.png> \
-  --width 390 --out <output/visual-qa.json> --confirm-reviewed
+  --width 390 --out <output/visual-qa.json> \
+  --confirm-reviewed --confirm-hero-title --confirm-hero-integration
 ```
 
 `publish.ts` 默认进入正式准备模式。保留 `--prepare-only` 作为可读性更强的显式写法；即使漏写它，也不会创建草稿。
@@ -191,7 +192,7 @@ npx tsx publish.ts <article.html> --create-draft --image-plan <image-plan.json> 
 
 `publish.ts` 的正式可复制版与草稿箱入口只接受已经完成组件排版和视觉审查的 HTML；Markdown 自动渲染只用于内部工作预览，不得绕过组件层直接进入正式交付。`--image-plan`、`--visual-qa` 与 `--source-article` 均为必填，语义分类器始终读取原始文章而非排版输出。本地图片只能位于文章目录，或显式 `--asset-dir` 指定的目录，防止文章 HTML 上传无关文件。
 
-`--gen-cover` 会生成无文字横向底图，把它裁成准确的 `900 x 383` JPEG，再在左侧安静构图区通过可控 SVG 层合成真实标题。用 `--cover-prompt` 传入语义隐喻或视觉方向。
+`--gen-cover` 会要求生图模型直接生成标题与画面融合的成品，脚本只将它裁成准确的 `900 x 383` JPEG。用 `--cover-prompt` 传入语义隐喻或视觉方向；标题错误、被裁切或粗糙贴字时不得使用该成品。
 
 ## 上传复用清单
 
