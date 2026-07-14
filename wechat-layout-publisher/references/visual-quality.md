@@ -1,115 +1,116 @@
-# Visual Quality Gates
+# 视觉质量闸门
 
-Use this before creating or placing major images. The goal is not to add more images; it is to make every image feel intentional, readable, and editorial.
+制作或放置重要图片前使用本规则。目标是让每张图都有意图、可阅读、具备编辑质感，而非增加图片数量。
 
-These rules are adapted for long-form WeChat articles from social-card design systems. Do not copy poster layouts directly into the article. Use the judgment rules: visual role, subject safety, screenshot readability, and final QA.
+本规则把社交卡片设计中的判断方法适配到公众号长文。禁止直接把海报布局搬进正文，只吸收视觉角色、主体安全、截图可读性和最终质量检查。
 
-## Contents
+## 目录
 
-- Visual role and editorial hero gates
-- Generated image and screenshot rules
-- Text, crop, sequence rhythm, and final QA
+- 视觉角色与编辑首图闸门
+- 生成图与截图规则
+- 文字、裁切、图片节奏与最终检查
 
-## Visual Role First
+## 先确定视觉角色
 
-Before selecting or generating an image, write a short internal answer:
+选择或生成图片前，先在内部回答：
 
-- What should the reader understand faster because of this image?
-- Is the image evidence, atmosphere, metaphor, structure, comparison, process, or data?
-- Which paragraph does it support?
-- What can be removed from the image because the article body already says it?
+- 读者会因为这张图更快理解什么？
+- 它负责证据、氛围、隐喻、结构、比较、流程还是数据？
+- 它服务哪个段落？
+- 正文已经说过的内容，可以从图中删掉什么？
 
-Reject the image if the answer is only "it looks nice".
+如果唯一理由是“看起来好看”，舍弃这张图。
 
-Good long-form roles:
+长文常用角色：
 
-- **Editorial hero**: article-level mood or central metaphor.
-- **Evidence screenshot**: proof of a public page, product interface, social discussion, document, or quoted source.
-- **Explainer graphic**: framework, chain, mechanism, timeline, comparison, or checklist.
-- **Object/photo well**: real product, person, place, scene, or supplied user material.
-- **Breathing divider**: rare. Use only when the article is visually exhausting and the image still carries mood.
+- **编辑首图**：建立文章级氛围或中心隐喻。
+- **证据截图**：证明公共页面、产品界面、社交讨论、文档或引述来源。
+- **解释图**：框架、链路、机制、时间线、比较或检查清单。
+- **实物 / 照片**：真实产品、人物、地点、场景或用户素材。
+- **呼吸图**：极少使用。只有文章视觉负担很重，且图片仍能承载氛围时采用。
 
-## Editorial Hero Gate
+## 编辑首图闸门
 
-The hero image sits immediately after title/subtitle, so it sets the trust level of the whole article. It must pass all checks:
+首图紧接标题与副标题，决定整篇文章的信任感，必须全部通过：
 
-- One clear focal idea; no collage unless the article itself is about comparison.
-- Generous negative space; the composition should not feel busy at mobile width.
-- No embedded words, fake UI, watermarks, logos, poster borders, or malformed text.
-- Restrained palette that fits `style-guide.md`: warm paper, ink, muted brick, muted sage, soft neutrals.
-- Obvious semantic link to the article's core metaphor, object, or tension.
-- Looks premium as an editorial image even without a caption.
-- For news commentary, carries a metaphor, tension, or editorial mood; it should not be a low-effort technical schematic.
+- 只有一个清晰视觉焦点；除非文章本身在做比较，否则禁止拼贴。
+- 留白充足；手机宽度下不能显得繁忙。
+- 没有内嵌文字、伪界面、水印、标志、海报边框或畸形字符。
+- 色彩符合 `style-guide.md`：暖纸、墨色、低饱和砖红、鼠尾草绿和柔和中性色。
+- 与文章核心隐喻、主体或冲突明显相关。
+- 即使没有图注，也像一张有质感的编辑图片。
+- 新闻评论类首图承担隐喻、张力或编辑氛围，不能用低质量技术示意图敷衍。
 
-If a generated hero looks generic, replace it with one of:
+生成首图过于通用时，换成：
 
-- A cleaner generated image with fewer objects.
-- A real screenshot/photo if the article is about a product, public page, person, or event.
+- 元素更少、更干净的重新生成图。
+- 文章围绕产品、公共页面、人物或事件时，使用真实截图或照片。
 
-Do not use SVG/HTML as the first visual when bitmap generation or a relevant real image is available. Mechanism diagrams belong after the reader understands the event or idea. The only exception is a clearly labeled coded fallback when the current Agent has no image-generation tool; the user must accept it or replace it externally before final delivery.
+有位图生成能力或相关真实图片时，首张视觉不得使用 SVG/HTML。机制图应该放在读者理解事件或观点之后。唯一例外是当前 Agent 没有图片生成工具时明确标注的代码替代稿；最终交付前必须由用户接受，或用外部生成图替换。
 
-## Generated Image Prompt Rules
+## 生成图提示词规则
 
-Generate image content only, not the final article layout. Do not ask the image model to create Chinese headlines, UI cards, captions, page numbers, badges, or poster text.
+只让模型生成画面内容，禁止让它制作最终文章版式。不要要求生成中文标题、UI 卡片、图注、页码、徽章或海报文字。
 
-When the current Agent has image-generation capability, every item routed as `generated_image` must use that tool, including body images after the hero and generated cover imagery. In Codex, use Image Gen. Do not generate only the first image and turn later metaphor/scene slots into coded SVGs. The prompt should explicitly carry this Skill's design system:
+当前 Agent 有图片生成能力时，所有 `generated_image` 都必须调用该工具，包括首图以后的正文图和生成封面图。在 Codex 中使用 Image Gen。禁止只生成第一张，再把后面的隐喻或场景改成代码 SVG。提示词必须包含本 Skill 的视觉系统：
 
-- Editorial WeChat article image, not a poster and not a SaaS hero.
-- Warm paper texture, restrained palette, muted brick accent and optional sage/ink neutrals.
-- One clear focal idea tied to the nearby paragraph.
-- Generous negative space, clean crop, mobile-readable composition.
-- No text, no letters, no logos, no watermark, no fake UI, no malformed interface.
-- Avoid neon sci-fi, purple-blue gradients, decorative orbs, clutter, and cheap terminal-window schematics.
+- 微信长文编辑图片，不是海报或 SaaS 首屏。
+- 暖纸质感、克制配色、低饱和砖红，可搭配鼠尾草绿或墨色中性色。
+- 一个与附近段落紧密相关的焦点。
+- 留白充足、裁切干净、手机上构图清楚。
+- 无文字、无字母、无标志、无水印、无伪界面、无畸形 UI。
+- 避免科幻霓虹、紫蓝渐变、装饰光球、杂乱和廉价终端窗口示意图。
 
-For the optional OpenAI API fallback, use the current image model (`gpt-image-2`) by default. Keep the model configurable and use only dimensions supported by that model family. When the Agent already has a native image-generation tool, use that tool instead of requiring an API key.
+可选 OpenAI API 备用流程默认使用当前图片模型 `gpt-image-2`。模型需可配置，尺寸只能使用该模型系列支持的规格。当前 Agent 已有原生图片工具时，优先使用原生工具，不要求 API key。
 
-Prompt shape:
-
-```text
-Premium editorial illustration for a WeChat long-form article about [central idea].
-[Concrete visual metaphor or scene].
-Warm paper texture, restrained muted brick and sage accents, refined negative space, soft natural light, magazine editorial composition.
-No text, no letters, no logo, no watermark, no UI, no poster border, no neon, no sci-fi glow.
-```
-
-For technical topics:
+通用提示词结构：
 
 ```text
-Premium editorial still life for an AI infrastructure essay: [objects or metaphor].
-Clean desk-like composition, warm paper background, subtle ink lines, muted brick accent, calm analytical mood.
-No text, no letters, no logo, no fake interface.
+微信公众号长文的高级杂志编辑插图，主题是[中心观点]。
+[具体视觉隐喻或场景]。
+暖纸质感，克制的低饱和砖红和鼠尾草绿，精致留白，柔和自然光，杂志编辑构图。
+无文字，无字母，无标志，无水印，无界面，无海报边框，无霓虹，无科幻光效。
 ```
 
-For conceptual metaphors:
+技术主题：
 
 ```text
-Minimal editorial metaphor image: [metaphor].
-One strong focal object, generous negative space, tactile paper texture, muted warm palette, quiet magazine style.
-No text, no letters, no logo, no watermark.
+AI 基础设施文章的高级编辑静物图：[物体或隐喻]。
+干净的桌面式构图，暖纸背景，细微墨线，低饱和砖红强调，平静理性的氛围。
+无文字，无字母，无标志，无伪界面。
 ```
 
-Bad prompt smells:
+概念隐喻：
 
-- "futuristic neon", "cyberpunk", "glowing network", "3D render dashboard" unless the article explicitly asks for that mood.
-- Too many objects joined by commas.
-- Asking the model to draw readable Chinese or English text.
-- Asking for a complete poster/card layout.
+```text
+极简编辑隐喻图：[隐喻]。
+一个强焦点，充足留白，可触摸的纸张质感，低饱和暖色，安静的杂志风格。
+无文字，无字母，无标志，无水印。
+```
 
-## Screenshot Quality Gate
+危险提示词特征：
 
-Use screenshots when the article quotes, references, or depends on a real public page, interface, document, social thread, research paper, or information website.
+- 除非文章明确要求这种氛围，否则避免 `futuristic neon`、`cyberpunk`、`glowing network`、`3D render dashboard`。
+- 用逗号堆太多物体。
+- 要求模型画可读的中文或英文文字。
+- 要求完整海报或卡片排版。
 
-For news, source in this order: official page/response, original social post or thread, reputable media, then community origin. Capture the original source whenever accessible. Search-result pages, recreated quote cards, generated posts, and code-made UI are not evidence.
+## 截图质量闸门
 
-Before placing a screenshot:
+文章引用或依赖真实公共页面、界面、文档、社交讨论、论文或信息网站时，使用截图。
 
-1. Crop away accidental browser clutter, notifications, sidebars, or irrelevant surrounding UI unless that chrome is part of the evidence.
-2. Keep UI text readable. Use `object-fit:contain` logic when detail matters; do not crop important labels.
-3. Put screenshots on a quiet stage: warm paper or light gray background, small radius, soft border, modest padding.
-4. Avoid 3D tilt, skew, exaggerated shadows, or perspective mockups unless the user explicitly wants a marketing image.
-5. If the screenshot is too dense for mobile, zoom into the relevant region and explain the source in the caption/completion note.
+新闻来源优先级：官方页面或回应、原始社交帖子或讨论、可信媒体、社区来源。能访问原始来源时必须截原始来源。搜索结果页、重制引语卡、生成帖子和代码仿界面都不算证据。
 
-Recommended WeChat-safe screenshot block:
+放入截图前：
+
+1. 裁掉无关浏览器区域、通知、侧栏和周边界面；如果浏览器信息本身构成证据，则保留。
+2. 界面文字必须可读。细节重要时采用类似 `object-fit:contain` 的完整显示方式，禁止裁掉关键标签。
+3. 使用安静承托层：暖纸或浅灰背景、小圆角、柔和边框和适量内边距。
+4. 除非用户明确要求营销图，避免 3D 倾斜、扭曲、夸张阴影和透视样机。
+5. 截图在手机上过于密集时，放大裁到关键区域，并在图注或完成回报中说明来源。
+6. 截图主体要足够大。可以加暖色背景、小标签、标题和来源，但不能制造大面积空边，使证据文字缩小到不可读。
+
+推荐的微信安全截图块：
 
 ```html
 <section style="margin:18px 0 24px;padding:16px;background:#fbf8f3;border:1px solid #e7dfd3;border-radius:4px;">
@@ -118,57 +119,60 @@ Recommended WeChat-safe screenshot block:
 <p style="margin:-12px 0 24px;text-align:center;font-size:12px;line-height:1.6;color:#999999;">图注：页面截图｜来源：...</p>
 ```
 
-For side-by-side screenshots, use the same treatment on both sides. Different frames make the comparison feel accidental.
+并排截图使用同一种承托方式。边框不同会让比较显得随意。
 
-## Text-On-Image Safety
+## 图上文字安全
 
-For this WeChat article style, avoid putting article text on top of images. Prefer title/subtitle in HTML above the image and captions below it.
+公众号正文尽量不把文章文字压在图片上。标题和副标题放在图片上方的 HTML 中，图注放在下方。
 
-If text must sit on an image:
+确实需要图上文字时：
 
-- Inspect the image first and identify the subject/focal feature.
-- Place text only in a quiet zone that does not cross faces, hands, products, or key UI.
-- Prefer no mask. If contrast fails, use a localized image-toned tint around the text area, not a full-image black overlay.
-- Downscale the result to mobile width and check that text is still readable.
-- If no safe quiet zone exists, move the text outside the image.
+- 先检查图片，确定主体和焦点。
+- 文字只能放在安静区，不能压住脸、手、产品或关键界面。
+- 优先不加遮罩。对比度不足时，只在文字附近使用与画面同色系的局部轻遮罩，禁止整图黑色遮罩。
+- 缩到手机宽度检查文字仍可读。
+- 找不到安全安静区时，把文字移到图片外。
 
-## Cropping And Subject Safety
+## 裁切与主体安全
 
-Every photo crop should preserve the reason the image was chosen.
+每次裁切都要保留选择这张图的理由。
 
-- Faces: never crop through eyes, mouth, or key expression.
-- Hands/tools/products: keep the action or object fully understandable.
-- Screenshots: preserve the relevant UI text; crop to the active area instead of shrinking the whole desktop.
-- Landscape/place: keep horizon and spatial context unless using the image purely as texture.
-- User-supplied evidence: do not crop out context that supports the claim.
+- 人脸：不能切过眼睛、嘴或关键表情。
+- 手、工具、产品：动作或对象必须保持完整可理解。
+- 截图：保留相关界面文字；裁到活动区域，不要把整个桌面缩小。
+- 风景或地点：除非只把图片当纹理，否则保留地平线与空间关系。
+- 用户证据：禁止裁掉支持主张的语境。
 
-If the image has a single subject, decide its crop intentionally. Do not leave default center crop when the subject is clearly high, low, left, or right.
+图片只有单一主体时，要主动决定裁切位置。主体明显偏上、偏下、偏左或偏右时，禁止依赖默认居中裁切。
 
-## Visual Sequence Rhythm
+## 图片序列节奏
 
-Long-form WeChat articles need alternating rhythm:
+公众号长文需要交替节奏：
 
-- Do not place two large atmosphere images back-to-back.
-- After a large hero, follow with lead text or a compact overview, not another hero-like image.
-- Use screenshots only where they prove something; use diagrams where they explain something.
-- If a section is dense, use one visual to reduce cognitive load, then continue text.
-- If a section is already simple, improve spacing instead of adding decoration.
+- 禁止连续放两张大型氛围图。
+- 大首图之后接导语或紧凑总览，不能再接另一张类似首图的大图。
+- 截图只在证明事实时使用，图表只在解释结构时使用。
+- 单元内容密集时，用一张图降低理解负担，再继续文字。
+- 单元本身简单时，用留白改善节奏，避免装饰图。
+- 连续大图或同一阅读单元超过一张大图，应触发复审，不必机械判定失败。只有职责明确区分为证据与解释时才保留。
+- 代码图高度由真实内容决定，删除标题、流程和结论之间的空洞区域，禁止固定大画布制造留白。
 
-## Final Image QA
+## 最终图片检查
 
-Before delivery, check:
+交付前确认：
 
-- `image-plan.json` passes final validation.
-- Every image has a named role and nearby paragraph.
-- Hero image passes the Editorial Hero Gate.
-- Screenshots are readable on mobile and not accidentally cropped.
-- Generated images contain no unwanted text, logos, fake UI, or watermark artifacts.
-- User-provided images appear near the relevant claim.
-- Relevant user videos use intentional timestamped frames, not arbitrary thumbnails.
-- Web-sourced images/screenshots have source records for the completion note.
-- Every `generated_image` records the actual provider; Codex records Image Gen.
-- When generation is unavailable, the coded fallback is labeled, preserves the desired prompt, and has a resolved user decision.
-- Coded visuals are limited to structural explanation and never impersonate evidence or the first editorial image, except for the disclosed no-generation fallback.
-- Captions are factual and short.
-- No image is used only as decoration.
-- The article still feels like one visual system: same palette, radius, caption style, and spacing.
+- `image-plan.json` 通过最终验证。
+- 每张图都有明确角色和服务的附近段落。
+- 首图通过编辑首图闸门。
+- 截图在手机上可读，且没有误裁。
+- 生成图没有多余文字、标志、伪界面或水印瑕疵。
+- 用户图片靠近对应主张。
+- 相关用户视频使用有意选择且带时间戳的画面，不用随机缩略图。
+- 网络图片与截图已记录来源，供完成回报使用。
+- 每个 `generated_image` 记录真实提供方；Codex 记录 Image Gen。
+- 图片生成不可用时，代码替代稿有明确标签，保留目标提示词，且用户选择已经解决。
+- 代码视觉只用于结构解释，绝不冒充证据或第一张编辑图；已说明的无生成能力替代稿除外。
+- 图注简短、客观。
+- 没有纯装饰图片。
+- 全文仍是一套视觉系统：配色、圆角、图注和间距一致。
+- 以约 `375-390px` 宽度打开完整预览，检查首屏与整页的标题/首图顺序、截图可读性、图表空白、图片堆叠和移动端节奏。脚本不能替代这一步视觉判断。

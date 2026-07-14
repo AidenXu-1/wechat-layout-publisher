@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -6,8 +7,10 @@ import { dirname, join, resolve, isAbsolute, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderArticle, extractImageSrcs } from "./render.ts";
 import { getAccessToken, uploadBodyImage, uploadCoverMaterial, addDraft } from "./wechat.ts";
+import type { DraftArticle } from "./wechat.ts";
 import { generateCover, coverPrompt } from "./imagegen.ts";
 import { missingCredentialMessage, resolveRuntimeCredentials } from "./credentials.ts";
+import type { RuntimeCredentials } from "./credentials.ts";
 import { detectImageFormat } from "./image-utils.ts";
 import { safeFetchBuffer } from "./safe-fetch.ts";
 import { prepareHeadlineCover } from "./cover-image.ts";
@@ -29,10 +32,19 @@ interface Args {
   sourceArticle?: string;
   allowEvidenceFailure: boolean;
   assetDirs: string[];
+  prepareOnly: boolean;
+  uploadManifest?: string;
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { input: "", genCover: false, noComment: false, allowEvidenceFailure: false, assetDirs: [] };
+  const a: Args = {
+    input: "",
+    genCover: false,
+    noComment: false,
+    allowEvidenceFailure: false,
+    assetDirs: [],
+    prepareOnly: false,
+  };
   const value = (flag: string, index: number): string => {
     const next = argv[index + 1];
     if (!next || next.startsWith("--")) throw new Error(`Missing value for ${flag}`);
@@ -41,6 +53,7 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--gen-cover") a.genCover = true;
+    else if (t === "--prepare-only") a.prepareOnly = true;
     else if (t === "--no-comment") a.noComment = true;
     else if (t === "--allow-evidence-failure") a.allowEvidenceFailure = true;
     else if (t === "--title") a.title = value(t, i++);
@@ -55,18 +68,51 @@ function parseArgs(argv: string[]): Args {
     else if (t === "--image-plan") a.imagePlan = value(t, i++);
     else if (t === "--source-article") a.sourceArticle = value(t, i++);
     else if (t === "--asset-dir") a.assetDirs.push(value(t, i++));
+    else if (t === "--upload-manifest") a.uploadManifest = value(t, i++);
     else if (t.startsWith("--")) throw new Error(`Unknown option: ${t}`);
     else if (!t.startsWith("--") && !a.input) a.input = t;
     else throw new Error(`Unexpected positional argument: ${t}`);
   }
   if (!a.input) {
     throw new Error(
-      "Usage: publish.ts <article.html|article.md> --image-plan <image-plan.json> [--source-article <original.md>] [--title ..] [--cover <path> | --gen-cover] [--asset-dir <allowed-dir>] [--cover-prompt ..] [--author ..] [--digest ..] [--no-comment] [--allow-evidence-failure] [--write-uploaded-fragment <path>] [--write-copy-ready <path>]",
+      "Usage: publish.ts <article.html|article.md> --image-plan <image-plan.json> [--source-article <original.md>] [--prepare-only] [--title ..] [--cover <path> | --gen-cover] [--asset-dir <allowed-dir>] [--upload-manifest <path>] [--cover-prompt ..] [--author ..] [--digest ..] [--no-comment] [--allow-evidence-failure] [--write-uploaded-fragment <path>] [--write-copy-ready <path>]",
     );
   }
-  if (!a.imagePlan) throw new Error("--image-plan <image-plan.json> is required for draft publishing.");
+  if (!a.imagePlan) throw new Error("--image-plan <image-plan.json> is required.");
   if (a.cover && a.genCover) throw new Error("Use either --cover or --gen-cover, not both.");
+  if (a.prepareOnly && (a.cover || a.genCover)) {
+    throw new Error("--prepare-only does not create or upload a cover. Remove --cover/--gen-cover.");
+  }
+  if (a.prepareOnly && !a.writeUploadedFragment && !a.writeCopyReady) {
+    throw new Error("--prepare-only requires --write-uploaded-fragment or --write-copy-ready (prefer both).");
+  }
   return a;
+}
+
+export interface PublisherDeps {
+  resolveCredentials(env: Record<string, string | undefined>): Promise<RuntimeCredentials>;
+  getAccessToken(appId: string, appSecret: string): Promise<string>;
+  uploadBodyImage(path: string, accessToken: string): Promise<string>;
+  uploadCoverMaterial(path: string, accessToken: string): Promise<string>;
+  addDraft(article: DraftArticle, accessToken: string): Promise<string>;
+  validateWechatHostedImage(src: string): Promise<void>;
+  generateCover(
+    prompt: string,
+    apiKey: string,
+    model: string,
+    outPath: string,
+    title?: string,
+  ): Promise<string>;
+  now(): string;
+}
+
+export interface PublishResult {
+  mode: "prepare-only" | "draft";
+  content: string;
+  draftMediaId?: string;
+  uploadedFragmentPath?: string;
+  copyReadyPath?: string;
+  uploadManifestPath: string;
 }
 
 function loadEnv(scriptDir: string): Record<string, string> {
@@ -196,6 +242,125 @@ function isWechatHosted(src: string): boolean {
   }
 }
 
+interface UploadManifestEntry {
+  source: string;
+  sha256: string;
+  wechat_url: string;
+  uploaded_at: string;
+}
+
+interface UploadManifest {
+  schema_version: 1;
+  uploads: UploadManifestEntry[];
+}
+
+function isManifestEntry(value: unknown): value is UploadManifestEntry {
+  if (!value || typeof value !== "object") return false;
+  const entry = value as Record<string, unknown>;
+  return (
+    typeof entry.source === "string" &&
+    typeof entry.sha256 === "string" &&
+    /^[a-f0-9]{64}$/i.test(entry.sha256) &&
+    typeof entry.wechat_url === "string" &&
+    isWechatHosted(entry.wechat_url) &&
+    typeof entry.uploaded_at === "string"
+  );
+}
+
+async function loadUploadManifest(path: string): Promise<UploadManifest> {
+  if (!existsSync(path)) return { schema_version: 1, uploads: [] };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    throw new Error(`Invalid upload manifest JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const manifest = parsed as Partial<UploadManifest>;
+  if (manifest.schema_version !== 1 || !Array.isArray(manifest.uploads) || !manifest.uploads.every(isManifestEntry)) {
+    throw new Error("Invalid upload manifest. Expected schema_version=1 and safe source/sha256/wechat_url/uploaded_at entries.");
+  }
+  return { schema_version: 1, uploads: manifest.uploads };
+}
+
+async function writeUploadManifestAtomic(path: string, manifest: UploadManifest): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  const temp = `${path}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+  try {
+    await writeFile(temp, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    await rename(temp, path);
+  } catch (error) {
+    await rm(temp, { force: true });
+    throw error;
+  }
+}
+
+async function sha256File(path: string): Promise<string> {
+  return createHash("sha256").update(await readFile(path)).digest("hex");
+}
+
+async function planRasterHashes(imagePlanPath: string): Promise<Map<string, string[]>> {
+  const parsed = JSON.parse(await readFile(imagePlanPath, "utf8")) as {
+    visuals?: Array<{ id?: string; status?: string; asset_path?: string }>;
+  };
+  const hashes = new Map<string, string[]>();
+  for (const visual of parsed.visuals || []) {
+    if (visual.status === "attempt_failed" || typeof visual.asset_path !== "string" || !visual.asset_path.trim()) continue;
+    let buffer: Buffer;
+    if (visual.asset_path.startsWith("data:image/")) {
+      const match = visual.asset_path.match(/^data:image\/(?:png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/i);
+      if (!match) continue;
+      buffer = Buffer.from(match[1], "base64");
+    } else if (/^https?:/i.test(visual.asset_path)) {
+      continue;
+    } else {
+      buffer = await readFile(resolve(dirname(imagePlanPath), visual.asset_path));
+    }
+    const format = detectImageFormat(buffer);
+    if (!format || (format.extension !== "png" && format.extension !== "jpg")) continue;
+    const hash = createHash("sha256").update(buffer).digest("hex");
+    hashes.set(hash, [...(hashes.get(hash) || []), visual.id || visual.asset_path]);
+  }
+  return hashes;
+}
+
+async function assertArticleImagesMatchPlan(
+  imagePlanPath: string,
+  bodyImageFiles: Map<string, string>,
+  hasWechatHostedImages: boolean,
+): Promise<void> {
+  if (!bodyImageFiles.size) return;
+  const planned = await planRasterHashes(imagePlanPath);
+  const actual = new Map<string, string[]>();
+  for (const [src, path] of bodyImageFiles) {
+    const hash = await sha256File(path);
+    actual.set(hash, [...(actual.get(hash) || []), shortSrcForLog(src)]);
+  }
+
+  const unplanned = [...actual].filter(([hash]) => !planned.has(hash)).flatMap(([, srcs]) => srcs);
+  if (unplanned.length) {
+    throw new Error(`Article contains body images that are not registered in the final image plan: ${unplanned.join(", ")}`);
+  }
+
+  if (!hasWechatHostedImages) {
+    const unused = [...planned].filter(([hash]) => !actual.has(hash)).flatMap(([, ids]) => ids);
+    if (unused.length) {
+      throw new Error(`Final image plan contains raster visuals that are not placed in the article body: ${unused.join(", ")}`);
+    }
+  }
+}
+
+function manifestSource(src: string, file: string, articleDir: string, sha256: string): string {
+  if (src.startsWith("data:image/")) return `data:${sha256}`;
+  if (/^https?:\/\//i.test(src)) return `url:${src}`;
+  const rel = relative(articleDir, file);
+  return isPathInside(file, articleDir) ? `file:${rel.split(sep).join("/")}` : `file:${file}`;
+}
+
+function upsertManifestEntry(manifest: UploadManifest, entry: UploadManifestEntry): void {
+  manifest.uploads = manifest.uploads.filter((item) => item.source !== entry.source);
+  manifest.uploads.push(entry);
+}
+
 function validateSourceUrl(value?: string): void {
   if (!value) return;
   let url: URL;
@@ -318,9 +483,21 @@ function htmlDigest(html: string): string {
   return stripTags(html).slice(0, 120);
 }
 
-async function main() {
+const defaultDeps: PublisherDeps = {
+  resolveCredentials: resolveRuntimeCredentials,
+  getAccessToken,
+  uploadBodyImage,
+  uploadCoverMaterial,
+  addDraft,
+  validateWechatHostedImage,
+  generateCover,
+  now: () => new Date().toISOString(),
+};
+
+export async function runPublish(argv: string[], overrides: Partial<PublisherDeps> = {}): Promise<PublishResult> {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const args = parseArgs(process.argv.slice(2));
+  const deps: PublisherDeps = { ...defaultDeps, ...overrides };
+  const args = parseArgs(argv);
   const inputPath = resolve(process.cwd(), args.input);
   if (!existsSync(inputPath)) throw new Error(`Input file not found: ${inputPath}`);
   validateSourceUrl(args.sourceUrl);
@@ -359,7 +536,11 @@ async function main() {
 
     const preflightPath = join(tempDir, "article-preflight.html");
     await writeFile(preflightPath, html, "utf8");
-    runVerifier(scriptDir, "verify-article.mjs", preflightPath);
+    runVerifier(scriptDir, "verify-article.mjs", preflightPath, false, [
+      "--complete-package",
+      "--source-article",
+      sourceArticlePath,
+    ]);
     runVerifier(scriptDir, "verify-copy.mjs", preflightPath, true);
     runVerifier(scriptDir, "validate-image-plan.mjs", imagePlanPath, true, [
       "--stage",
@@ -370,22 +551,28 @@ async function main() {
       ...(args.allowEvidenceFailure ? ["--allow-evidence-failure"] : []),
     ]);
 
-    let coverPath = args.cover ? assertAllowedLocalFile(resolve(process.cwd(), args.cover), allowedRoots) : "";
-    if (!coverPath && fm.cover) {
-      const candidate = resolve(articleDir, fm.cover);
-      if (existsSync(candidate)) coverPath = assertAllowedLocalFile(candidate, allowedRoots);
-    }
-    if (!coverPath && !args.genCover) {
-      throw new Error("A cover image is required. Pass --cover <path> or --gen-cover.");
+    let coverPath = "";
+    if (!args.prepareOnly) {
+      coverPath = args.cover ? assertAllowedLocalFile(resolve(process.cwd(), args.cover), allowedRoots) : "";
+      if (!coverPath && fm.cover) {
+        const candidate = resolve(articleDir, fm.cover);
+        if (existsSync(candidate)) coverPath = assertAllowedLocalFile(candidate, allowedRoots);
+      }
+      if (!coverPath && !args.genCover) {
+        throw new Error("A cover image is required for draft mode. Pass --cover <path> or --gen-cover.");
+      }
     }
 
+    const manifestPath = resolve(args.uploadManifest || join(articleDir, "wechat-upload-manifest.json"));
+    const manifest = await loadUploadManifest(manifestPath);
     const bodyImageFiles = new Map<string, string>();
     const allSrcs = [...new Set(extractImageSrcs(html))];
     const wechatHostedSrcs = allSrcs.filter(isWechatHosted);
-    for (const src of wechatHostedSrcs) await validateWechatHostedImage(src);
     const srcs = allSrcs.filter((src) => !isWechatHosted(src));
     for (const src of srcs) {
-      bodyImageFiles.set(src, await resolveImageToFile(src, articleDir, tempDir, allowedRoots));
+      if (!/^https?:\/\//i.test(src)) {
+        bodyImageFiles.set(src, await resolveImageToFile(src, articleDir, tempDir, allowedRoots));
+      }
     }
 
     if (coverPath) {
@@ -396,50 +583,114 @@ async function main() {
     }
 
     const env = loadEnv(scriptDir);
-    const credentials = await resolveRuntimeCredentials(env);
+    const credentials = await deps.resolveCredentials(env);
+    const requireWechatCredentials = (): { appId: string; appSecret: string } => {
+      const appId = credentials.wechatAppId;
+      const appSecret = credentials.wechatAppSecret;
+      if (!appId || !appSecret) {
+        const missing = [!appId && "WECHAT_APP_ID", !appSecret && "WECHAT_APP_SECRET"].filter(Boolean) as string[];
+        throw new Error(missingCredentialMessage(missing));
+      }
+      return { appId, appSecret };
+    };
+    let wechatCredentials = args.prepareOnly ? undefined : requireWechatCredentials();
 
     if (!coverPath && args.genCover) {
       const key = credentials.openaiApiKey;
       if (!key) throw new Error(missingCredentialMessage(["OPENAI_API_KEY"]) + " It is required only when using --gen-cover.");
       console.log("▶ Generating and cropping 2.35:1 cover image via OpenAI...");
       const semanticDirection = args.coverPrompt || fm.cover_prompt || "";
-      coverPath = await generateCover(
+      coverPath = await deps.generateCover(
         coverPrompt(title, semanticDirection),
         key,
         args.model || credentials.openaiImageModel || "gpt-image-2",
         join(tempDir, "wechat-headline-cover.jpg"),
+        title,
       );
       console.log(`  ✓ 2.35:1 cover prepared: ${coverPath}`);
     }
 
-    const appId = credentials.wechatAppId;
-    const appSecret = credentials.wechatAppSecret;
-    if (!appId || !appSecret) {
-      const missing = [!appId && "WECHAT_APP_ID", !appSecret && "WECHAT_APP_SECRET"].filter(Boolean) as string[];
-      throw new Error(missingCredentialMessage(missing));
+    for (const src of srcs) {
+      if (/^https?:\/\//i.test(src)) {
+        bodyImageFiles.set(src, await resolveImageToFile(src, articleDir, tempDir, allowedRoots));
+      }
     }
 
-    console.log(`▶ Title: ${title}`);
-    console.log("▶ Fetching WeChat access token...");
-    const token = await getAccessToken(appId, appSecret);
+    await assertArticleImagesMatchPlan(imagePlanPath, bodyImageFiles, wechatHostedSrcs.length > 0);
+    for (const src of wechatHostedSrcs) await deps.validateWechatHostedImage(src);
 
-    if (srcs.length) console.log(`▶ Uploading ${srcs.length} inline image(s) to WeChat...`);
+    console.log(`▶ Title: ${title}`);
+    const pendingUploads: Array<{ src: string; file: string; sha256: string; source: string }> = [];
     for (const src of srcs) {
       const file = bodyImageFiles.get(src)!;
-      const url = await uploadBodyImage(file, token);
-      html = replaceImageSrc(html, src, url);
-      console.log(`  ✓ ${shortSrcForLog(src)} → ${url}`);
+      const sha256 = await sha256File(file);
+      const source = manifestSource(src, file, articleDir, sha256);
+      const cached = manifest.uploads.find((entry) => entry.source === source && entry.sha256 === sha256);
+      if (cached) {
+        try {
+          await deps.validateWechatHostedImage(cached.wechat_url);
+          html = replaceImageSrc(html, src, cached.wechat_url);
+          console.log(`  ↻ reused ${shortSrcForLog(src)} → ${cached.wechat_url}`);
+          continue;
+        } catch {
+          console.log(`  ! cached WeChat URL is unavailable; re-uploading ${shortSrcForLog(src)}`);
+        }
+      }
+      pendingUploads.push({ src, file, sha256, source });
+    }
+
+    let token = "";
+    if (pendingUploads.length || !args.prepareOnly) {
+      wechatCredentials ||= requireWechatCredentials();
+      console.log("▶ Fetching WeChat access token...");
+      token = await deps.getAccessToken(wechatCredentials.appId, wechatCredentials.appSecret);
+    }
+
+    if (pendingUploads.length) console.log(`▶ Uploading ${pendingUploads.length} inline image(s) to WeChat...`);
+    const uploadedByHash = new Map<string, string>();
+    for (const item of pendingUploads) {
+      let url = uploadedByHash.get(item.sha256);
+      if (!url) {
+        url = await deps.uploadBodyImage(item.file, token);
+        if (!isWechatHosted(url)) throw new Error(`WeChat uploadimg returned a non-WeChat URL: ${url}`);
+        uploadedByHash.set(item.sha256, url);
+      }
+      html = replaceImageSrc(html, item.src, url);
+      upsertManifestEntry(manifest, {
+        source: item.source,
+        sha256: item.sha256,
+        wechat_url: url,
+        uploaded_at: deps.now(),
+      });
+      await writeUploadManifestAtomic(manifestPath, manifest);
+      console.log(`  ✓ ${shortSrcForLog(item.src)} → ${url}`);
     }
 
     const copyReadyPath = join(tempDir, "article-copy-ready.html");
     await writeFile(copyReadyPath, html, "utf8");
     runVerifier(scriptDir, "verify-copy-ready.mjs", copyReadyPath);
 
+    if (args.writeUploadedFragment || args.writeCopyReady) {
+      await writeCopyReadyOutputs(html, args, scriptDir);
+    }
+
+    const resultBase = {
+      content: html,
+      uploadedFragmentPath: args.writeUploadedFragment ? resolve(process.cwd(), args.writeUploadedFragment) : undefined,
+      copyReadyPath: args.writeCopyReady ? resolve(process.cwd(), args.writeCopyReady) : undefined,
+      uploadManifestPath: manifestPath,
+    };
+
+    if (args.prepareOnly) {
+      console.log("\n✅ 正文图片已准备，可复制；未创建草稿。");
+      return { mode: "prepare-only", ...resultBase };
+    }
+
     console.log("▶ Uploading cover to WeChat material library...");
-    const thumbMediaId = await uploadCoverMaterial(coverPath, token);
+    const thumbMediaId = await deps.uploadCoverMaterial(coverPath, token);
 
     console.log("▶ Creating draft...");
-    const draftId = await addDraft(
+    const draftId = await deps.addDraft(
       {
         title,
         author,
@@ -452,10 +703,6 @@ async function main() {
       token,
     );
 
-    if (args.writeUploadedFragment || args.writeCopyReady) {
-      await writeCopyReadyOutputs(html, args, scriptDir);
-    }
-
     console.log("\n✅ Draft created in WeChat Official Account draft box");
     console.log(`   Title:    ${title}`);
     console.log(`   Author:   ${author || "(none)"}`);
@@ -464,12 +711,16 @@ async function main() {
     if (args.writeUploadedFragment) console.log(`   uploaded fragment: ${resolve(process.cwd(), args.writeUploadedFragment)}`);
     if (args.writeCopyReady) console.log(`   copy-ready preview: ${resolve(process.cwd(), args.writeCopyReady)}`);
     console.log("   Open https://mp.weixin.qq.com → 内容管理 → 草稿箱 to preview & publish.");
+    return { mode: "draft", draftMediaId: draftId, ...resultBase };
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
 }
 
-main().catch((err) => {
-  console.error(`\n❌ ${err instanceof Error ? err.message : String(err)}`);
-  process.exit(1);
-});
+const executedPath = process.argv[1] ? resolve(process.argv[1]) : "";
+if (executedPath === fileURLToPath(import.meta.url)) {
+  runPublish(process.argv.slice(2)).catch((err) => {
+    console.error(`\n❌ ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  });
+}

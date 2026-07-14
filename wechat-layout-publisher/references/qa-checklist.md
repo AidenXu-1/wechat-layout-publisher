@@ -1,71 +1,79 @@
-# Quality Checklist
+# 质量检查清单
 
-Run this before delivering preview HTML or writing to the WeChat draft box.
+交付预览 HTML 或写入微信公众号草稿箱前，逐项检查。
 
-For draft publishing, require `publish.ts` preflight to pass before any WeChat request. Do not bypass a failed article verifier, final image-plan check, asset-boundary check, body-image check, cover crop, or copy-ready check.
+草稿模式必须先通过 `publish.ts` 全部预检，再发起任何微信请求。禁止绕过正文验证、最终图片计划、素材边界、正文图、封面裁切或正式可复制状态检查。
 
-## Structure
+## 结构
 
-- Article has title, subtitle, hero or intentional no-hero decision, lead, 3-5 reading units, and close.
-- Content type is classified before writing. News/event tracking articles include a captured evidence screenshot and source URL, or an explicitly documented access-failure downgrade.
-- Opening has a human hook or reader pain before professional explanation.
-- Each section has one main idea.
-- Long lists are compressed into cards, table, or SVG overview.
-- The article uses a consistent component set from `components.md`.
-- There are no unexplained jumps from one section to another.
+- 完整文章包顺序固定为：HTML H1、克制副标题、2.35:1 无内嵌标题的正文首图、导语。独立的公众号头条封面为 900×383，并用可控排版层合成标题。更换任一图片不得删除 H1 或副标题。
+- 写作前已完成内容分类。新闻/事件跟踪文章包含已截取的证据截图与来源 URL，或明确记录访问失败后的降级。
+- 开头先有人能感到的钩子或痛点，再进入专业解释。
+- 每个阅读单元只有一个主旨。
+- 长列表压缩成卡片、表格或 SVG 总览。
+- 全文使用 `components.md` 中一致的组件组合。
+- 阅读单元之间没有缺少解释的跳跃。
 
-## WeChat Safety
+## 微信安全
 
-- Article body between `ARTICLE HTML START` and `ARTICLE HTML END` contains no `<style>`, `<script>`, `class=`, or `id=`.
-- All article styles are inline.
-- No layout depends on fixed positioning, transforms, animation, media queries, or fragile float behavior.
-- Images are local, base64, remote direct images, or already WeChat-hosted; draft publishing will upload/replace them.
-- If the deliverable is WeChat copy-ready, no image uses a local path, `file://` path, or unverified remote URL. Run `npm run verify-copy-ready -- <file>`.
-- Do not claim "copy to WeChat and images will remain" unless images use exact WeChat hosts, or a remote/data URI route has been manually paste-tested and explicitly allowed by the verifier.
-- Body images are kept under about 1 MB when possible.
+- `ARTICLE HTML START` 与 `ARTICLE HTML END` 之间没有 `<style>`、`<script>`、`class=` 或 `id=`。
+- 正文样式全部内联。
+- 布局不依赖固定定位、transform、动画、媒体查询或脆弱的 float。
+- 图片来源为本地、base64、远程直链或微信托管；草稿发布会上传并替换需要处理的图片。
+- 正式可复制版不能含本地路径、`file://` 路径或未经验证的远程 URL。运行 `npm run verify-copy-ready -- <file>`。
+- 只有图片使用准确微信主机，或远程/data URI 路线已真实粘贴测试并被验证器显式允许时，才能承诺“复制到微信后图片会保留”。
+- 正文图尽量控制在约 1 MB 内。
 
-## Visuals
+## 视觉
 
-- `image-plan.json` exists and passes `npm run verify-image-plan -- --stage final --article <source-article> --check-files <image-plan.json>`.
-- Every ready evidence/generated/user-image `asset_path` is a real local PNG/JPEG or valid PNG/JPEG data URI. A `coded_visual` may use a safety-checked, self-contained local SVG or inline-HTML component; protocol-relative, HTTP(S), FTP, file, and other external resource references are rejected. Directories and unverified remote URLs do not count as captured assets.
-- Classification records content type, confidence, and specific semantic signals. Public-event-plus-opinion uses mixed-news evidence rules.
-- Every supplied image/video was assessed before web search or generation; relevant assets are used or have an explicit override reason.
-- News and mixed-news articles contain at least one captured evidence screenshot near the supported claim. A generated image, quote card, SVG, or timeline does not count.
-- Evidence source priority is official, primary social, reputable media, then community; source URLs are recorded.
-- The plan records whether the current Agent has image generation and names the actual tool when available.
-- Every `generated_image` uses the available native tool; in Codex this is Image Gen, including non-hero body images.
-- When image generation is unavailable, the user was notified, a coded fallback and reusable prompt were produced, and `user_decision` is no longer pending.
-- `coded_visual` is used only for process, relationship, timeline, framework, comparison, data, or mechanism. The only first-image exception is the disclosed generated-image fallback, and it never counts as evidence.
-- Complete article packages include a `2.35:1` headline cover or an explicit reason it was skipped.
-- Optional `1:1` square cover is created only when there is a downstream use; it uses a shortened title, not a blind crop.
-- Every visual has a role: hero, evidence, explainer, object/photo, data overview, or rare breathing divider.
-- Hero passes `visual-quality.md` and does not contain malformed text or fake UI.
-- Screenshots are cropped to the meaningful subject and readable on mobile.
-- Generated images have no watermark-like artifacts, logos, unwanted letters, or poster text.
-- User-provided images are not over-cropped or moved away from the paragraph they support.
-- Web-sourced images/screenshots have source notes for the completion report.
-- Captions are short, factual, and consistent.
+- `image-plan.json` 存在，并通过 `npm run verify-image-plan -- --stage final --article <source-article> --check-files <image-plan.json>`。
+- `runtime` 已填写；本地正文图与最终图片计划按内容哈希双向一致，没有未登记图片或未落地的计划图片。
+- 每个就绪的证据图、生成图或用户图，其 `asset_path` 必须是真实本地 PNG/JPEG 或有效 PNG/JPEG data URI。`coded_visual` 可以使用通过安全检查且自包含的本地 SVG 或内联 HTML；拒绝协议相对地址、HTTP(S)、FTP、file 及其他外部资源。目录和未验证远程 URL 不算已捕获素材。
+- 分类记录内容类型、置信度和具体语义依据。公共事件加观点按混合新闻证据规则处理。
+- 搜索或生成前已评估全部用户图片和视频；相关素材已使用，或有明确 `override_reason`。
+- 新闻与混合新闻文章至少有一张靠近对应主张的证据截图。生成图、引语卡、SVG 或时间线都不计入证据。
+- 证据来源优先级为官方、原始社交来源、可信媒体、社区；已记录来源 URL。
+- 图表数字都能追溯到准确来源 URL 或用户数据集。只有二手或社区汇总时，必须标注限制，不能当作确定事实。
+- 每个数据视觉都填写 `data_sources`。
+- 图片计划记录当前 Agent 是否有生成能力；有时记录真实工具。
+- 每个 `generated_image` 都使用可用的原生工具；在 Codex 中包括正文非首图在内，全部使用 Image Gen。
+- 图片生成不可用时，已经通知用户，制作代码替代稿并保留可复用提示词，而且 `user_decision` 已不再是 `pending`。
+- `coded_visual` 只用于流程、关系、时间线、框架、比较、数据或机制。唯一可作为首图的例外，是已明确说明的生成图替代稿；它永远不算证据。
+- 完整文章包包含 `2.35:1` 头条封面，或明确说明跳过原因。
+- 可选 `1:1` 只在有下游用途时制作；使用单独压缩的标题，禁止盲裁。
+- 每张图都有明确角色：首图、证据、解释图、实物/照片、数据总览，或极少使用的呼吸图。
+- 首图通过 `visual-quality.md`，没有畸形文字或伪界面。
+- 截图裁到有效主体，手机宽度下仍可读。
+- 截图承托层不会用大面积装饰留白缩小证据主体。
+- 生成图没有水印状瑕疵、标志、多余字母或海报文字。
+- 用户图片没有过度裁切，也没有离开它支持的段落。
+- 网络图片与截图已记录来源，供完成回报使用。
+- 图注简短、客观、统一。
 
-## Rhythm
+## 节奏
 
-- No two large atmosphere images appear back-to-back.
-- Dense text is broken with a real explainer, screenshot, callout, or table.
-- Visual blocks do not dominate the article at the expense of reading.
-- There is enough breathing room before and after section headings.
+- 不连续放两张大型氛围图。
+- 一个阅读单元通常只有一个视觉锚点。第二张大图必须承担不同的证据、数据、流程或机制职责。
+- 图表高度由内容决定，标题、流程和结论之间没有空洞留白。
+- 密集文字用真正的解释图、截图、提示块或表格打断。
+- 视觉块不压过正文阅读。
+- 章节标题前后有足够留白。
 
-## Copy
+## 文案
 
-- Claims are not invented.
-- Paragraphs usually carry one point. Paragraphs over 90-120 Chinese characters have been inspected and usually split.
-- AI-smell phrases from `editorial-writing.md` have been reduced.
-- Product names, model names, paper titles, dates, and numbers are checked when they matter.
-- The strongest sentence is highlighted once, not repeated as bold text everywhere.
-- Closing block summarizes the article's actual conclusion.
+- 不编造主张。
+- 一个段落通常只表达一个要点。超过 90 至 120 个汉字的段落已检查并通常拆分。
+- 已减少 `editorial-writing.md` 中列出的 AI 腔。
+- 产品名、模型名、论文标题、日期和重要数字已核对。
+- 最强句只强调一次，不在全文重复加粗。
+- 结尾表达文章真实结论。除非源文明确使用，否则不添加泛标题。
 
-## Preview
+## 预览
 
-- Open the generated preview HTML.
-- Local-only preview has no copy-to-WeChat button. For the verified copy-ready preview, click the copy button at least once if the environment supports it.
-- Inspect mobile width: no text overflow, image distortion, unreadable captions, or broken image icons.
-- Confirm whether this preview is local-only or WeChat copy-ready. Local-only previews can show local images that will not survive paste into WeChat.
-- If draft publishing is requested, confirm credentials are configured, `--image-plan` is final, all local materials are inside the article directory or explicit `--asset-dir`, and the cover can be normalized to `900 x 383`.
+- 打开生成的完整预览 HTML。
+- 本地预览没有复制到微信按钮；正式可复制预览在环境允许时至少点击一次复制按钮。
+- 以约 `375-390px` 宽度检查首屏和整页：标题与首图顺序、图片堆叠、截图可读性、图表留白、文字溢出、变形、图注和破图。
+- 把这一步记录为人工视觉质量闸门。自动 HTML 检查不能证明构图通过。
+- 完成回报明确写出实际检查宽度、首屏和整页审查状态，以及未解决的视觉问题；未完成时不得进入正式上传或草稿创建。
+- 明确预览属于仅限本地还是微信正式可复制版。本地图片无法随复制进入微信。
+- 用户要求写草稿时，确认凭据已配置、`--image-plan` 为最终状态、全部本地素材位于文章目录或显式 `--asset-dir` 内，且封面可规范为 `900 x 383`。

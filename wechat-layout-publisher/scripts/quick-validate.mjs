@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import sharp from "sharp";
 
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
 const tmp = mkdtempSync(join(tmpdir(), "wechat-layout-validate-"));
@@ -27,9 +28,11 @@ try {
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nJ8AAAAASUVORK5CYII=",
     "base64",
   );
-  writeFileSync(join(tmp, "hero.png"), tinyPng);
+  await sharp({ create: { width: 900, height: 383, channels: 3, background: "#efe6d9" } }).png().toFile(join(tmp, "hero.png"));
   writeFileSync(join(tmp, "evidence.png"), tinyPng);
-  writeFileSync(join(tmp, "external-hero.png"), tinyPng);
+  await sharp({ create: { width: 900, height: 383, channels: 3, background: "#d68163" } })
+    .png()
+    .toFile(join(tmp, "external-hero.png"));
   writeFileSync(
     join(tmp, "process.svg"),
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40"><rect x="1" y="1" width="98" height="38" fill="#f7f2ea"/><text x="10" y="24" font-size="12">Step</text></svg>',

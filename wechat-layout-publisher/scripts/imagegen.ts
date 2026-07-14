@@ -97,10 +97,11 @@ export async function generateCover(
   apiKey: string,
   model = "gpt-image-2",
   outPath = join(tmpdir(), `wechat-headline-cover-${Date.now()}.jpg`),
+  title = "",
 ): Promise<string> {
   const rawPath = await generateImage(prompt, apiKey, { model });
   try {
-    return await prepareHeadlineCover(rawPath, outPath);
+    return await prepareHeadlineCover(rawPath, outPath, { title });
   } finally {
     await rm(rawPath, { force: true });
   }
@@ -111,7 +112,7 @@ export function coverPrompt(title: string, semanticDirection = ""): string {
   return [
     `Create an editorial metaphor image for a WeChat article titled "${title}".`,
     semanticDirection ? `Semantic direction: ${semanticDirection}.` : "Express the article's central tension through one clear visual metaphor.",
-    "The source image will be center-cropped into a 2.35:1 banner. Keep every important subject inside the central horizontal band and away from the top and bottom edges.",
+    "The source image will be center-cropped into a 2.35:1 banner. Keep the main subject on the right and a calm, low-detail title area on the left; keep important content away from the top and bottom edges.",
     "Warm paper, refined ink, muted brick and restrained sage accents; tactile editorial photography or illustration; confident negative space; one visual idea only.",
     "No text, letters, logos, fake interface, fake code, collage, decorative blobs, or random gradient.",
   ].join(" ");
