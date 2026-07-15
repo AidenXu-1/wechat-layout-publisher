@@ -2,7 +2,7 @@
 
 文章母版、最终 `image-plan.json` 和视觉检查完成后，使用本流程。同一份文章正文支持两种最终交付：正式可复制版，以及仅在用户要求时创建的草稿箱版。
 
-`image-plan.json` 必须记录开局选择的 `content_mode`。`preserve` 会在任何微信请求前核对源文字符与顺序，检测到删改或调序立即停止；`rewrite` 允许改写，但仍使用源文章做内容分类、证据和事实边界检查。
+`image-plan.json` 必须记录开局确认的入口、内容阶段、内容模式、交付方式、草稿授权和正文图片上传授权。`--prepare-only` 只接受 `delivery_mode: copy_ready` 与 `body_image_upload_authorization: copy_ready_request`；`--create-draft` 只接受 `delivery_mode: draft`、有效草稿授权，以及 `draft_request` 或 `post_preview_confirmation` 的正文图片上传授权。`preserve` 会在任何微信请求前核对源文字符与顺序，检测到删改或调序立即停止；`rewrite` 允许改写，但仍使用源文章做内容分类、证据和事实边界检查。
 
 ## 目录
 
@@ -16,7 +16,7 @@
 - 目标账号必须是已认证且拥有 `draft/add` 权限的微信公众号。
 - 需要上传正文图或创建草稿时，`WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` 必须来自环境变量、本地 `.env` 或系统安全凭据库。`--prepare-only` 输入已经全部是有效微信图片 URL 时，只验证并复用，不要求凭据。
 - 调用方公网 IP 必须加入公众号 IP 白名单。
-- 只有草稿模式需要封面：传入 `--cover <path>`，或用 `--gen-cover` 与 `OPENAI_API_KEY` 生成。
+- 只有草稿模式需要封面，且必须传入已经人工查看并通过视觉 QA 的 `--cover <path>`。发布命令禁止临时生成封面，避免未经审看的图片直接进入草稿箱。
 - 普通发布的 `--cover` 使用 `2.35:1` 头条封面，标准成品为 `900 x 383`。当前 `draft/add` 脚本只发送一个封面 media id；可选 `1:1` 是附加素材，不是第二个 API 封面字段。
 - 官方 API 参考：
   - Access token：`https://developers.weixin.qq.com/doc/offiaccount/Basic_Information/Get_access_token.html`
@@ -117,11 +117,26 @@ OPENAI_IMAGE_MODEL=gpt-image-2
 cd scripts
 npm run record-visual-qa -- \
   --article <article.html> \
+  --image-plan <image-plan.json> \
   --viewport-screenshot <output/qa-mobile.png> \
   --full-page-screenshot <output/qa-full-page.png> \
   --width 390 --out <output/visual-qa.json> \
-  --confirm-reviewed --confirm-hero-title --confirm-hero-integration
+  --confirm-reviewed --confirm-hero-title --confirm-hero-integration \
+  --confirm-hero-clean --confirm-no-overflow --confirm-no-broken-images \
+  --confirm-visual-text-readable --confirm-density-balanced --confirm-visual-system \
+  --confirm-no-unexplained-gaps --confirm-no-raw-separators \
+  --confirm-first-section-anchor --confirm-no-heavy-visual-runs \
+  --confirm-no-tall-screenshot-runs --confirm-no-semantic-duplicates \
+  --confirm-stable-full-page-capture
 ```
+
+回执同时绑定正文哈希与最终图片计划哈希。录制前先运行：
+
+```bash
+npm run verify-layout -- --article <article.html> --image-plan <image-plan.json>
+```
+
+浏览器原生 `fullPage` 截图如果出现章节重复平铺，不能勾选稳定截图确认。改用固定移动宽度的分段滚动截图，按滚动顺序拼接并人工检查接缝；回执会再次检测近似重复的纵向图块。
 
 `publish.ts` 默认进入正式准备模式。保留 `--prepare-only` 作为可读性更强的显式写法；即使漏写它，也不会创建草稿。
 
@@ -135,6 +150,8 @@ npx tsx publish.ts <article.html> --prepare-only \
 ```
 
 `--prepare-only` 至少要求一个输出参数；普通交付同时使用两个。只有需要上传本地正文图时才使用微信凭据。成功含义是：`正文图片已准备，可复制；未创建草稿`。
+
+正式可复制预览中的正文图已经是微信托管地址时，本地浏览器可能因防盗链显示占位图。预览必须显示这一限制说明；验收以正文 HTML 仍引用正确微信 URL，以及粘贴进微信公众号编辑器后的实际显示为准，不能把本地占位图误判为素材丢失。
 
 ### 用已准备正文创建草稿
 
@@ -168,9 +185,6 @@ npx tsx publish.ts <article.html> --create-draft --image-plan <image-plan.json> 
 --digest "摘要"
 --source-url "https://..."
 --no-comment
---gen-cover
---model gpt-image-2
---cover-prompt "用户把高权限交给 AI 后出现信任裂缝"
 --asset-dir "../shared-materials"
 --upload-manifest "../output/upload-manifest.json"
 --allow-evidence-failure
@@ -188,11 +202,13 @@ npx tsx publish.ts <article.html> --create-draft --image-plan <image-plan.json> 
 
 只有 `--create-draft` 会进入草稿模式。该模式只上传没有有效 manifest 记录或有效微信 URL 的正文图片，然后通过 `material/add_material` 上传封面，再调用 `draft/add`。
 
-在 token、上传或草稿 API 调用前，`publish.ts` 会验证文章安全、最终图片计划、视觉 QA 回执、素材边界和 `900 x 383` 封面裁切。每个视觉必须用 `data-wlp-visual-id` 与计划按顺序绑定；所有位图都以真实字节核对内容哈希，包括微信托管 URL。受保护远程下载器会检查公网路由、重定向、超时、大小、MIME 与文件签名。`--allow-evidence-failure` 只适用于最终计划中所有证据尝试都结构化记录真实访问失败的情况。
+在 token、上传或草稿 API 调用前，`publish.ts` 会验证文章安全、统一布局、最终图片计划、视觉 QA 回执、素材边界和 `900 x 383` 封面裁切。每个视觉必须用 `data-wlp-visual-id` 与计划按顺序绑定；所有位图都以真实字节核对内容哈希，包括微信托管 URL。受保护远程下载器会检查公网路由、重定向、超时、大小、MIME 与文件签名。`--allow-evidence-failure` 只适用于最终计划中所有证据尝试都结构化记录真实访问失败的情况。
+
+若微信托管图因 DNS、保留地址解析、防盗链或临时网络条件无法由受保护下载器回拉，禁止关闭 SSRF、放宽私网规则或盲信原 URL。只有同时满足以下条件才可回退：最终计划中存在同一 `data-wlp-visual-id` 的本地母版；母版位于文章目录或显式 `--asset-dir`；文件为真实 PNG/JPEG；字节哈希与最终计划一致。正式准备可以用它完成内容绑定；创建草稿时重新上传该母版并替换正文 URL。
 
 `publish.ts` 的正式可复制版与草稿箱入口只接受已经完成组件排版和视觉审查的 HTML；Markdown 自动渲染只用于内部工作预览，不得绕过组件层直接进入正式交付。`--image-plan`、`--visual-qa` 与 `--source-article` 均为必填，语义分类器始终读取原始文章而非排版输出。本地图片只能位于文章目录，或显式 `--asset-dir` 指定的目录，防止文章 HTML 上传无关文件。
 
-`--gen-cover` 会要求生图模型直接生成标题与画面融合的成品，脚本只将它裁成准确的 `900 x 383` JPEG。用 `--cover-prompt` 传入语义隐喻或视觉方向；标题错误、被裁切或粗糙贴字时不得使用该成品。
+封面应在正式发布命令前生成、裁为准确的 `900 x 383`，并完成标题准确、文字融合、无额外文字、缩略图可读和整体风格一致的人工检查。检查通过后才把该确定文件传给 `--cover`。`publish.ts --gen-cover` 会直接拒绝，防止新图片绕过视觉审查。
 
 ## 上传复用清单
 
@@ -220,6 +236,8 @@ npm run verify-copy-ready -- ../output/preview-wechat-copy.html
 - `errcode=40164`：把当前公网 IP 加入公众号 IP 白名单。
 - `errcode=48001`：账号未认证或缺少所需 API 权限。
 - `Body image too large`：把正文图压到 1 MB 内后重试。
-- `A cover image is required for draft mode`：传入 `--cover` 或使用 `--gen-cover`；`--prepare-only` 不需要封面。
+- `WeChat-hosted image could not be safely fetched`：保持远程安全限制，确认最终计划中的本地母版、许可目录和哈希；不要通过关闭 SSRF 解决。
+- `full_page_screenshot appears to contain repeated vertical tiles`：重新执行分段滚动截图并稳定拼接，人工检查后重录视觉回执。
+- `A cover image is required for draft mode`：传入已经审查通过的 `--cover`；`--prepare-only` 不需要封面。
 
 草稿创建成功不等于公开发布。用户仍需打开 `mp.weixin.qq.com`，预览草稿并手动发布。

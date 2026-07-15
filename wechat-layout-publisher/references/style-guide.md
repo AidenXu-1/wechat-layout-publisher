@@ -44,13 +44,24 @@
 8. 章节图片放在第一段解释文字之后。
 9. 真实结论或收束段。
 
+首个正文 H2 单元有需要证明或解释的信息时，语义视觉应在标题后的前两段内出现。标题后的多段长文字再补图，会让读者先失去抓手，再被迫回看。
+
 ## 密度规则
 
 - 为扫读节奏服务，不追求把源文每一点都视觉化。
 - 优先规划 3 至 5 个阅读单元，每个单元一个主旨。
 - 每个单元写 1 至 3 个短段落，再进入下一张图、卡片组或提示块。
+- 图片、SVG、大卡片、引用、表格、矩阵、步骤块和长截图都计入视觉密度。两个重视觉块之间至少需要一段承担新信息的解释正文。
 - 同级要点超过 5 个时，改用卡片、表格或 SVG 总览，避免拆成多个密集章节。
+- 同一组数据或步骤只保留一种主要视觉表达，避免卡片后紧接同义图表。
 - 最强的一句话放在导语或深色结尾块，普通段落不要到处加粗。
+
+## 纵向间距
+
+- Markdown 分隔符 `---`、`***`、`___` 只用于源文结构，最终正文不显示字符、横线或占位高度。
+- 相邻组件之间只有一个间距负责人。章节标题以自身上边距建立区隔，前一组件不要同时增加大底边距。
+- 禁止用空 `section`、空 `p`、`&nbsp;`、固定高度或重复 `<br>` 制造呼吸感。
+- 移动端出现超过一个正文行高的无内容空白时，先检查叠加边距和空节点，不能把异常留白解释成风格。
 
 ## 核心片段
 
@@ -108,13 +119,22 @@
 ### 数字卡片
 
 ```html
-<section style="margin:0;">
-  <section style="display:inline-block;vertical-align:top;width:31%;min-height:96px;margin:0 1% 12px 0;padding:14px 12px;background:#fff;border:1px solid #e7dfd3;border-radius:3px;">
-    <div style="width:32px;height:3px;background:#d68163;border-radius:2px;margin:0 0 18px;"></div>
-    <p style="margin:0 0 8px;font-size:18px;line-height:1.3;color:#d68163;font-weight:800;">80.3%</p>
-    <p style="margin:0;font-size:11px;line-height:1.55;color:#777777;">指标说明</p>
-  </section>
-</section>
+<table style="width:100%;table-layout:fixed;border-collapse:separate;border-spacing:6px 0;">
+  <tbody><tr>
+    <td style="padding:12px 8px;vertical-align:top;background:#ffffff;border:1px solid #e7dfd3;border-radius:3px;">
+      <p style="margin:0 0 6px;font-size:18px;line-height:1.3;color:#d68163;font-weight:800;">80.3%</p>
+      <p style="margin:0;font-size:12px;line-height:1.55;color:#777777;word-break:break-word;">指标说明</p>
+    </td>
+    <td style="padding:12px 8px;vertical-align:top;background:#ffffff;border:1px solid #e7dfd3;border-radius:3px;">
+      <p style="margin:0 0 6px;font-size:18px;line-height:1.3;color:#8f9b83;font-weight:800;">12 次</p>
+      <p style="margin:0;font-size:12px;line-height:1.55;color:#777777;word-break:break-word;">交接次数</p>
+    </td>
+    <td style="padding:12px 8px;vertical-align:top;background:#ffffff;border:1px solid #e7dfd3;border-radius:3px;">
+      <p style="margin:0 0 6px;font-size:18px;line-height:1.3;color:#252525;font-weight:800;">3 天</p>
+      <p style="margin:0;font-size:12px;line-height:1.55;color:#777777;word-break:break-word;">完成周期</p>
+    </td>
+  </tr></tbody>
+</table>
 ```
 
 ### 时间线信息图
@@ -125,14 +145,14 @@
 <section style="margin:18px 0 24px;padding:22px 20px;background:#fbf8f3;border-radius:4px;">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 637 280" style="display:block;width:100%;height:auto;">
     <rect width="637" height="280" fill="#fbf8f3"/>
-    <text x="24" y="34" font-size="20" font-weight="800" fill="#252525" font-family="system-ui">时间线标题</text>
+    <text x="24" y="40" font-size="30" font-weight="800" fill="#252525" font-family="system-ui">时间线标题</text>
     <line x1="60" y1="120" x2="580" y2="120" stroke="#252525" stroke-width="3"/>
     <circle cx="120" cy="120" r="5" fill="#252525"/>
-    <text x="120" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#252525" font-family="system-ui">阶段一</text>
+    <text x="120" y="92" text-anchor="middle" font-size="24" font-weight="700" fill="#252525" font-family="system-ui">阶段一</text>
     <circle cx="300" cy="120" r="5" fill="#252525"/>
-    <text x="300" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#252525" font-family="system-ui">阶段二</text>
+    <text x="300" y="92" text-anchor="middle" font-size="24" font-weight="700" fill="#252525" font-family="system-ui">阶段二</text>
     <circle cx="520" cy="120" r="6" fill="#d68163"/>
-    <text x="520" y="92" text-anchor="middle" font-size="13" font-weight="800" fill="#d68163" font-family="system-ui">当前</text>
+    <text x="520" y="92" text-anchor="middle" font-size="24" font-weight="800" fill="#d68163" font-family="system-ui">当前</text>
   </svg>
 </section>
 ```

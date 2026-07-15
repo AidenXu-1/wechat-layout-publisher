@@ -9,21 +9,15 @@ const skillDir = resolve(scriptDir, "..");
 const templatePath = resolve(skillDir, "references", "copy-preview-template.html");
 
 function usage() {
-  console.error("Usage: node scripts/make-preview.mjs [--copy-ready] [--allow-remote] [--allow-data-uri] <article-fragment.html> <output-preview.html>");
+  console.error("Usage: node scripts/make-preview.mjs <article-fragment.html> <output-preview.html>");
+  console.error("Formal copy-ready previews must be produced by publish.ts after image-plan and visual-QA validation.");
   process.exit(1);
 }
 
-const copyReady = process.argv.includes("--copy-ready");
-const allowRemote = process.argv.includes("--allow-remote");
-const allowDataUri = process.argv.includes("--allow-data-uri");
-const [inputArg, outputArg] = process.argv
-  .slice(2)
-  .filter((arg) => !["--copy-ready", "--allow-remote", "--allow-data-uri"].includes(arg));
+const cliArgs = process.argv.slice(2);
+if (cliArgs.some((arg) => arg.startsWith("--"))) usage();
+const [inputArg, outputArg] = cliArgs;
 if (!inputArg || !outputArg) usage();
-if (!copyReady && (allowRemote || allowDataUri)) {
-  console.error("--allow-remote and --allow-data-uri are valid only with --copy-ready.");
-  process.exit(1);
-}
 
 const inputPath = resolve(process.cwd(), inputArg);
 const outputPath = resolve(process.cwd(), outputArg);
@@ -50,25 +44,12 @@ function runVerifier(script, verifierArgs) {
   }
 }
 
-if (copyReady) {
-  runVerifier("verify-copy-ready.mjs", [
-    ...(allowRemote ? ["--allow-remote"] : []),
-    ...(allowDataUri ? ["--allow-data-uri"] : []),
-    inputPath,
-  ]);
-} else {
-  runVerifier("verify-article.mjs", [inputPath]);
-}
+runVerifier("verify-article.mjs", [inputPath]);
 
-const controls = copyReady
-  ? `<div class="copy-bar">
-    <button class="btn-copy" onclick="copyArticle()">复制到公众号正文</button>
-    <button class="btn-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">回到顶部</button>
-  </div>`
-  : `<div class="local-note">本地预览：图片可能无法随正文复制，请使用发布脚本生成公众号复制版。</div>`;
+const controls = `<div class="local-note">本地预览：图片可能无法随正文复制，请使用发布脚本生成经过图片计划和视觉审查的正式复制版。</div>`;
 const rendered = template
   .replace("{{ARTICLE_HTML}}", articleHtml)
-  .replace("{{PREVIEW_LABEL}}", copyReady ? "公众号复制版" : "公众号本地预览")
+  .replace("{{PREVIEW_LABEL}}", "公众号本地预览")
   .replace("{{PREVIEW_CONTROLS}}", controls);
 
 mkdirSync(dirname(outputPath), { recursive: true });

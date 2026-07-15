@@ -1,0 +1,52 @@
+{
+  "first_section_visual_anchor": {
+    "status": "present",
+    "visual_id": "relationship"
+  },
+  "visuals": [
+    {
+      "id": "hero",
+      "role": "hero",
+      "source_type": "generated_image",
+      "asset_dimensions": { "width": 900, "height": 383 }
+    },
+    {
+      "id": "relationship",
+      "role": "explainer",
+      "source_type": "coded_visual",
+      "semantic_kind": "relationship",
+      "semantic_signature": ["Ollama", "llama.cpp", "模型管理"],
+      "asset_dimensions": { "width": 1274, "height": 720 }
+    },
+    {
+      "id": "issue",
+      "role": "evidence",
+      "source_type": "evidence_screenshot",
+      "semantic_signature": ["issue 3185", "400 天"],
+      "asset_dimensions": { "width": 1040, "height": 1800 }
+    },
+    {
+      "id": "faq",
+      "role": "evidence",
+      "source_type": "evidence_screenshot",
+      "semantic_signature": ["Ollama FAQ", "云模型"],
+      "asset_dimensions": { "width": 1040, "height": 1900 }
+    },
+    {
+      "id": "performance",
+      "role": "data",
+      "source_type": "coded_visual",
+      "semantic_kind": "data",
+      "semantic_signature": ["llama.cpp", "161 tokens/s", "Ollama", "89 tokens/s"],
+      "asset_dimensions": { "width": 1274, "height": 620 }
+    },
+    {
+      "id": "commercialization",
+      "role": "explainer",
+      "source_type": "coded_visual",
+      "semantic_kind": "process",
+      "semantic_signature": ["包装开源项目", "淡化上游贡献", "增加迁移成本", "推出闭源组件", "转向云服务变现"],
+      "asset_dimensions": { "width": 1274, "height": 820 }
+    }
+  ]
+}

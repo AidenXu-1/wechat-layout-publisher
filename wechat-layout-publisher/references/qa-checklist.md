@@ -6,7 +6,11 @@
 
 ## 内容模式
 
-- 开局已经选择 `rewrite` 或 `preserve`，并写入 `image-plan.json` 的 `content_mode`。
+- 目的地已确认是微信公众号。`image-plan.json` 已记录 `interaction_contract_version: 2`、`content_choice`、`delivery_choice`、`choice_source`、`destination: wechat_official_account`、`entry_mode`、`input_stage`、`content_mode`、`delivery_mode`、`draft_authorization` 和 `body_image_upload_authorization`；Skill 续接同时记录 `handoff_version: 1` 与任意非空的 `source_skill`。
+- 开局使用最新版三模式问句，同时给出 A 杂乱资料、B 初稿文案、C 发布定稿和两种交付方式；用户只写正文、其他平台内容或公众号目的地待定时没有误进入本 Skill。
+- `messy_materials` 与 `draft_copy` 使用 `rewrite`；`final_copy` 使用 `preserve`。
+- `copy_ready` 使用 `draft_authorization: none` 与 `body_image_upload_authorization: copy_ready_request`；`draft` 必须使用相匹配的草稿授权和正文图片上传授权。
+- `draft_copy` 已按独立流程完成“诊断、守住事实与立场边界、逐项修订、定稿自检、修改说明”，没有退化成从零重写或完全冻结。
 - `rewrite` 的改动没有编造事实、经历、数据或改变作者立场，完成回报列出主要改动。
 - `preserve` 已通过源文精确校验；正文没有润色、删减、调序、隐藏原文或自动修复 AI 腔。获准新增的节点分别使用 `data-wlp-added="title|subtitle|caption|source"`；图注以“图注：”开头，来源以“来源：”开头。未标记的新正文直接失败。
 
@@ -19,6 +23,7 @@
 - 长列表压缩成卡片、表格或 SVG 总览。
 - 全文使用 `components.md` 中一致的组件组合。
 - 阅读单元之间没有缺少解释的跳跃。
+- 原始 Markdown `---`、`***`、`___` 没有作为正文字符、横线或占位段落出现；章节间距没有被两个相邻组件重复承担。
 
 ## 微信安全
 
@@ -27,15 +32,17 @@
 - 布局不依赖固定定位、transform、动画、媒体查询或脆弱的 float。
 - 图片来源为本地、base64、远程直链或微信托管；草稿发布会上传并替换需要处理的图片。
 - 正式可复制版不能含本地路径、`file://` 路径或未经验证的远程 URL。运行 `npm run verify-copy-ready -- <file>`。
-- 禁止 `srcset`、`picture/source`、`meta/base`、隐藏内容及其他未经验证的资源属性。独立 `make-preview --copy-ready` 也必须先通过正文安全验证。
+- 禁止 `srcset`、`picture/source`、`meta/base`、隐藏内容及其他未经验证的资源属性。独立 `make-preview` 只生成本地工作预览，不能声称正式可复制。
 - 只有图片使用准确微信主机，或远程/data URI 路线已真实粘贴测试并被验证器显式允许时，才能承诺“复制到微信后图片会保留”。
 - 正文图尽量控制在约 1 MB 内。
+- 微信托管图在本地预览触发防盗链占位时，预览已说明限制；草稿回拉失败只使用同 ID、同哈希、许可目录内的本地母版，没有削弱 SSRF。
 
 ## 视觉
 
 - `image-plan.json` 存在，并通过 `npm run verify-image-plan -- --stage final --article <source-article> --check-files <image-plan.json>`。
+- `first_section_visual_anchor` 已记录；有实质内容的首个 H2 单元，语义视觉在标题后的前两段内出现，或有具体可核查的跳过理由。
 - `runtime` 已填写；每个正文视觉在实际 `<img>` 或内联代码视觉根节点上按计划顺序写入唯一 `data-wlp-visual-id`。本地、远程、data URI 和微信托管图片均与最终计划按 ID、顺序和内容哈希一致。
-- 每个就绪的证据图、生成图或用户图，其 `asset_path` 必须是真实本地 PNG/JPEG 或有效 PNG/JPEG data URI。`coded_visual` 可以使用通过安全检查且自包含的本地 SVG 或内联 HTML；拒绝协议相对地址、HTTP(S)、FTP、file 及其他外部资源。目录和未验证远程 URL 不算已捕获素材。
+- 每个就绪的证据图、生成图或用户图，其 `asset_path` 必须是真实本地 PNG/JPEG 或有效 PNG/JPEG data URI。`coded_visual` 可以使用通过安全检查且自包含的本地 SVG 或内联 HTML，但必须填写与文件一致的 `asset_sha256`，正式正文中原样出现一次；拒绝协议相对地址、HTTP(S)、FTP、file 及其他外部资源。目录和未验证远程 URL 不算已捕获素材。
 - 分类记录内容类型、置信度和具体语义依据。公共事件加观点按混合新闻证据规则处理。
 - 搜索或生成前已评估全部用户图片和视频；相关素材已使用，或有明确 `override_reason`。
 - 新闻与混合新闻文章至少有一张靠近对应主张的证据截图。生成图、引语卡、SVG 或时间线都不计入证据。
@@ -43,11 +50,12 @@
 - 证据访问失败时记录 `failure_code`、`attempted_at` 和具体原因；只有真实失败并明确说明降级时才使用 `--allow-evidence-failure`。
 - 图表数字都能追溯到准确来源 URL 或用户数据集。只有二手或社区汇总时，必须标注限制，不能当作确定事实。
 - 每个数据视觉都填写 `data_sources`。
+- 每个非首图视觉填写 2 至 12 个 `semantic_signature`，最终素材填写与文件一致的 `asset_dimensions`；证据截图填写 `crop_strategy`，保留的长截图另有 `full_context_reason`。
 - 图片计划记录当前 Agent 是否有生成能力；有时记录真实工具。
 - 每个 `generated_image` 都使用可用的原生工具；在 Codex 中包括正文非首图在内，全部使用 Image Gen。
 - 图片生成不可用时，已经通知用户并停在本地工作预览；未用替代稿冒充首图进入正式交付。
 - `coded_visual` 只用于流程、关系、时间线、框架、比较、数据或机制，不得作为首图或证据。
-- 完整文章包包含 `2.35:1` 头条封面，或明确说明跳过原因。
+- 完整文章包包含至少 `900×383` 的 `2.35:1` 头条封面，首图提示词明确含准确标题与该比例；或明确说明尚未进入正式交付。
 - 可选 `1:1` 只在有下游用途时制作；使用单独压缩的标题，禁止盲裁。
 - 每张图都有明确角色：首图、证据、解释图、实物/照片、数据总览，或极少使用的呼吸图。
 - 首图通过 `visual-quality.md`：生图模型来源、`2.35:1`、标题与 HTML H1 一致、文字融入构图、缩略图可读，且没有畸形文字或伪界面。
@@ -60,8 +68,13 @@
 
 ## 节奏
 
+- 运行 `npm run verify-layout -- --article <article> --image-plan <image-plan.json>` 并通过；它是正式交付硬闸门。
 - 不连续放两张大型氛围图。
+- 图片、SVG、大卡片、引用、表格、矩阵、步骤块和长截图统一计入强视觉块。
 - 一个阅读单元通常只有一个视觉锚点。第二张大图必须承担不同的证据、数据、流程或机制职责。
+- 同一阅读单元的第二张及后续视觉都填写 `density_override_reason`；它不能覆盖硬失败；最终计划中的 `semantic_reason` 不重复。
+- 相邻重视觉块之间有承担新信息的正文解释，没有连续长截图。
+- 同一组数据没有先用卡片再紧接同义图表；同一组步骤没有先用步骤卡再紧接同义流程图。
 - 图表高度由内容决定，标题、流程和结论之间没有空洞留白。
 - 密集文字用真正的解释图、截图、提示块或表格打断。
 - 视觉块不压过正文阅读。
@@ -81,8 +94,9 @@
 - 打开生成的完整预览 HTML。
 - 本地预览没有复制到微信按钮；正式可复制预览在环境允许时至少点击一次复制按钮。
 - 以约 `375-390px` 宽度检查首屏和整页：标题与首图顺序、图片堆叠、截图可读性、图表留白、文字溢出、变形、图注和破图。
-- 保存当前正文在同一移动宽度下的首屏截图和整页截图。检查标题准确与文字融合后，运行 `npm run record-visual-qa` 生成与当前正文哈希绑定的回执；正文再改动必须重新审查。
+- 保存当前正文在同一移动宽度下的首屏截图和整页截图。若原生整页截图重复平铺，改用分段滚动截图稳定拼接。检查标题准确、文字融合、无额外文字、无横向溢出、无破图、全部视觉文字可读、图片密度平衡、无异常留白、无原始分隔符、首节锚点靠前、无重视觉连排、无长截图连排、无语义重复、整页截图稳定和视觉系统一致后，运行 `npm run record-visual-qa`，传入 `--image-plan` 与全部对应确认参数，生成与当前正文和图片计划哈希绑定的回执；正文或图片计划再改动必须重新审查。
 - `publish.ts` 必须接收该 `--visual-qa` 回执。它只能阻止跳过步骤，不能证明构图审美通过。
 - 完成回报明确写出实际检查宽度、首屏和整页审查状态，以及未解决的视觉问题；未完成时不得进入正式上传或草稿创建。
 - 明确预览属于仅限本地还是微信正式可复制版。本地图片无法随复制进入微信。
 - 用户要求写草稿时，确认凭据已配置、`--image-plan` 为最终状态、全部本地素材位于文章目录或显式 `--asset-dir` 内，且封面可规范为 `900 x 383`。
+- `copy_ready` 交付后只在用户明确表示满意时询问是否加入草稿箱；用户授权后更新交付状态并重做受影响的验证。

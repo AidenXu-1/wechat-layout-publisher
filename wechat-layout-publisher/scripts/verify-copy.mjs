@@ -65,10 +65,13 @@ for (const [idx, line] of lines.entries()) {
   }
 }
 
-const boldCount = (body.match(/<strong\b|font-weight\s*:\s*(?:700|800|900)/gi) || []).length;
-if (boldCount > 18) {
+// Component titles, table headers, step labels, and section headings are expected
+// to use heavier weights. Count only semantic <strong> emphasis so layout chrome
+// cannot falsely block an otherwise restrained article.
+const boldCount = (body.match(/<strong\b/gi) || []).length;
+if (boldCount > 10) {
   warnings++;
-  console.log(`WARN many bold/emphasis markers (${boldCount}). Check whether the article is becoming a wall of golden sentences.`);
+  console.log(`WARN many semantic <strong> emphasis markers (${boldCount}). Check whether the prose is becoming a wall of golden sentences.`);
 }
 
 if (!warnings) {

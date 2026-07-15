@@ -59,23 +59,16 @@ try {
     throw new Error("Local preview must be labeled local-only and must not expose the copy-to-WeChat button.");
   }
 
-  const copyPreview = join(tmp, "copy-preview.html");
-  run(["make-preview.mjs", "--copy-ready", safe, copyPreview]);
-  const copyPreviewHtml = readFileSync(copyPreview, "utf8");
-  if (!copyPreviewHtml.includes('<button class="btn-copy"') || copyPreviewHtml.includes("{{PREVIEW_")) {
-    throw new Error("Verified copy-ready preview must expose the copy button.");
-  }
+  run(["make-preview.mjs", "--copy-ready", safe, join(tmp, "forbidden-copy-preview.html")], 1);
 
   const fakeWechat = join(tmp, "fake-wechat.html");
   writeFileSync(fakeWechat, '<img src="https://mmbiz.qpic.cn.evil.example/test.png" style="width:100%;display:block;" />');
   run(["verify-copy-ready.mjs", fakeWechat], 1);
-  run(["make-preview.mjs", "--copy-ready", fakeWechat, join(tmp, "fake-copy-preview.html")], 1);
 
   const dataCopy = join(tmp, "data-copy.html");
   writeFileSync(dataCopy, `<img src="data:image/png;base64,${tinyPng.toString("base64")}" style="width:100%;display:block;" />`);
   run(["verify-copy-ready.mjs", dataCopy], 1);
   run(["verify-copy-ready.mjs", "--allow-data-uri", dataCopy]);
-  run(["make-preview.mjs", "--copy-ready", "--allow-data-uri", dataCopy, join(tmp, "data-copy-preview.html")]);
 
   const invalidDataCopy = join(tmp, "invalid-data-copy.html");
   writeFileSync(invalidDataCopy, '<img src="data:image/png;base64,NOT-BASE64" style="width:100%;display:block;" />');
@@ -93,20 +86,33 @@ try {
   writeFileSync(remoteCopy, '<img src="https://example.com/a.png" style="width:100%;display:block;" />');
   run(["verify-copy-ready.mjs", remoteCopy], 1);
   run(["verify-copy-ready.mjs", "--allow-remote", remoteCopy]);
-  run(["make-preview.mjs", "--copy-ready", "--allow-remote", remoteCopy, join(tmp, "remote-copy-preview.html")]);
   run(["extract-video-frame.mjs", "--help"]);
 
   const newsPlan = join(tmp, "news-plan.json");
   writeFileSync(
     newsPlan,
     JSON.stringify({
+      interaction_contract_version: 2,
+      content_choice: "B",
+      delivery_choice: "A",
+      choice_source: "direct_user",
       runtime: "codex",
+      destination: "wechat_official_account",
+      entry_mode: "direct",
+      input_stage: "draft_copy",
       content_mode: "rewrite",
+      delivery_mode: "copy_ready",
+      draft_authorization: "none",
+      body_image_upload_authorization: "copy_ready_request",
       image_generation_capability: "available",
       image_generation_tool: "imagegen",
       content_type: "news_event",
       classification_confidence: 0.9,
       classification_signals: ["recent company announcement with official source"],
+      first_section_visual_anchor: {
+        status: "not_applicable",
+        skip_reason: "快速验证短文没有二级正文标题，因此无需首节视觉锚点",
+      },
       supplied_assets: [],
       visuals: [
         {
@@ -118,10 +124,11 @@ try {
           source_type: "generated_image",
           semantic_reason: "editorial metaphor for the event tension",
           title_text: "事件测试标题",
-          prompt: "2.35:1 editorial metaphor with the exact title integrated",
+          prompt: "2.35:1 editorial metaphor with the exact title 事件测试标题 integrated",
           provider: "imagegen",
           status: "ready",
           asset_path: "hero.png",
+          asset_dimensions: { width: 900, height: 383 },
         },
         {
           id: "evidence",
@@ -131,12 +138,15 @@ try {
           role: "evidence",
           source_type: "evidence_screenshot",
           semantic_reason: "proves the official announcement exists",
+          semantic_signature: ["official announcement", "event evidence"],
           source_url: "https://example.com/official",
           source_tier: "official",
+          crop_strategy: "focused",
           status: "captured",
           captured_at: "2026-07-14T00:00:00.000Z",
           asset_sha256: `sha256:${createHash("sha256").update(readFileSync(join(tmp, "evidence.png"))).digest("hex")}`,
           asset_path: "evidence.png",
+          asset_dimensions: { width: 640, height: 360 },
         },
       ],
     }),
@@ -159,8 +169,11 @@ try {
       source_type: "coded_visual",
       semantic_kind: "process",
       semantic_reason: "shows the sequence precisely",
+      semantic_signature: ["first step", "second step"],
       status: "ready",
       asset_path: "process.svg",
+      asset_sha256: `sha256:${createHash("sha256").update(readFileSync(join(tmp, "process.svg"))).digest("hex")}`,
+      asset_dimensions: { width: 100, height: 40 },
     },
   ];
   writeFileSync(codedPlan, JSON.stringify(coded));
@@ -183,7 +196,13 @@ try {
     badNewsPlan,
     JSON.stringify({
       runtime: "codex",
+      destination: "wechat_official_account",
+      entry_mode: "direct",
+      input_stage: "draft_copy",
       content_mode: "rewrite",
+      delivery_mode: "copy_ready",
+      draft_authorization: "none",
+      body_image_upload_authorization: "copy_ready_request",
       image_generation_capability: "available",
       image_generation_tool: "imagegen",
       content_type: "news_event",
@@ -219,7 +238,13 @@ try {
     skippedUserAssetPlan,
     JSON.stringify({
       runtime: "codex",
+      destination: "wechat_official_account",
+      entry_mode: "direct",
+      input_stage: "draft_copy",
       content_mode: "rewrite",
+      delivery_mode: "copy_ready",
+      draft_authorization: "none",
+      body_image_upload_authorization: "copy_ready_request",
       image_generation_capability: "available",
       image_generation_tool: "imagegen",
       content_type: "experience",
@@ -244,7 +269,7 @@ try {
           source_type: "generated_image",
           semantic_reason: "sets the project mood",
           title_text: "项目复盘测试标题",
-          prompt: "2.35:1 editorial project still life with the exact title integrated",
+          prompt: "2.35:1 editorial project still life with the exact title 项目复盘测试标题 integrated",
           provider: "imagegen",
           status: "ready",
           asset_path: "images/hero.jpg",
@@ -268,13 +293,27 @@ try {
 
   const fallbackPlan = join(tmp, "fallback-plan.json");
   const fallback = {
+    interaction_contract_version: 2,
+    content_choice: "C",
+    delivery_choice: "A",
+    choice_source: "direct_user",
     runtime: "generic-agent",
+    destination: "wechat_official_account",
+    entry_mode: "direct",
+    input_stage: "final_copy",
     content_mode: "preserve",
+    delivery_mode: "copy_ready",
+    draft_authorization: "none",
+    body_image_upload_authorization: "copy_ready_request",
     image_generation_capability: "unavailable",
     generation_capability_notice: "This Agent cannot generate bitmap images. A coded preview is ready for user choice.",
     content_type: "opinion",
     classification_confidence: 0.9,
     classification_signals: ["conceptual opinion essay"],
+    first_section_visual_anchor: {
+      status: "not_applicable",
+      skip_reason: "快速验证短文没有二级正文标题，因此无需首节视觉锚点",
+    },
     supplied_assets: [],
     visuals: [
       {
@@ -315,7 +354,7 @@ try {
     source_type: "generated_image",
     semantic_reason: "desired editorial metaphor",
     title_text: "外部生成的测试标题",
-    prompt: "2.35:1 editorial metaphor with the exact title integrated",
+    prompt: "2.35:1 editorial metaphor with the exact title 外部生成的测试标题 integrated",
     provider: "unavailable",
     status: "planned",
   };
@@ -326,6 +365,7 @@ try {
   unavailableGenerated.visuals[0].user_decision = "replace_externally";
   unavailableGenerated.visuals[0].status = "ready";
   unavailableGenerated.visuals[0].asset_path = "external-hero.png";
+  unavailableGenerated.visuals[0].asset_dimensions = { width: 900, height: 383 };
   writeFileSync(unavailableGeneratedPlan, JSON.stringify(unavailableGenerated));
   run(["validate-image-plan.mjs", "--stage", "final", unavailableGeneratedPlan]);
 

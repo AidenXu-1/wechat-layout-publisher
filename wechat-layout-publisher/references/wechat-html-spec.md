@@ -6,6 +6,7 @@
 
 - 正文样式全部写在 `style=""` 中。
 - 使用 `section`、`p`、`h1`、`h2`、`strong`、`span`、`img`、`blockquote`、`table`、`svg` 等语义标签。
+- 允许本 Skill 的 `data-wlp-visual-id`、`data-wlp-visual-block` 与 `data-wlp-added` 数据属性，用于计划对账、强视觉密度检查和定稿新增节点审计。
 - 文章图片尽量控制在约 1 MB 内。
 - 本地预览外壳的 JavaScript 必须放在 `ARTICLE HTML START` 和 `ARTICLE HTML END` 之外。
 
@@ -17,6 +18,8 @@
 - 禁止外部样式表。
 - 禁止 CSS 动画、transform、固定定位和媒体查询。
 - 避免依赖 `gap`、`position` 或 `float` 的布局。
+- 禁止把 Markdown 分隔符 `---`、`***`、`___` 作为可见正文字符或独立段落输出。
+- 禁止空 `section`、空 `p`、仅含 `&nbsp;` 的节点、固定高度占位块或重复 `<br>` 制造纵向留白。
 
 ## 图片说明
 
@@ -45,6 +48,15 @@ npm run verify-article -- <preview-or-fragment.html>
 
 文件有标记时，它只提取 `ARTICLE HTML START` 和 `ARTICLE HTML END` 之间的正文，再检查常见的微信不兼容标签与属性。
 
+同时运行统一布局检查：
+
+```bash
+cd scripts
+npm run verify-layout -- --article <preview-or-fragment.html> --image-plan <image-plan.json>
+```
+
+它会把可见 Markdown 分隔符、异常空白、首节视觉过晚、相邻重视觉、连续长截图和语义重复视为正式交付失败。
+
 正式可复制图片还要运行：
 
 ```bash
@@ -62,9 +74,10 @@ npm run verify-copy-ready -- --allow-remote <preview-or-fragment.html>
 npm run verify-copy-ready -- --allow-data-uri <preview-or-fragment.html>
 ```
 
-记录真实粘贴测试后，生成预览时使用相同的显式例外：
+这些例外只能用于独立验证，输出仍不自动获得“正式可复制”状态。正式可复制预览必须由 `publish.ts --prepare-only` 在最终图片计划、视觉 QA 和正文图片上传授权都通过后生成。
 
 ```bash
-node scripts/make-preview.mjs --copy-ready --allow-remote <fragment.html> <preview.html>
-node scripts/make-preview.mjs --copy-ready --allow-data-uri <fragment.html> <preview.html>
+node scripts/make-preview.mjs <fragment.html> <local-preview.html>
 ```
+
+`make-preview.mjs` 永远只生成本地工作预览，不显示复制按钮，也不接受 `--copy-ready`、`--allow-remote` 或 `--allow-data-uri`。
