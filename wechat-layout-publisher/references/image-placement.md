@@ -39,14 +39,17 @@
 
 - **首图**：放在标题和副标题之后，必须由生图模型生成，带与 H1 准确一致且融入构图的标题。
 - **导语视觉**：导语包含多项主张时，在导语后放紧凑总览图。
-- **章节视觉**：放在章节第一段之后，让读者先知道应该看什么。
+- **首节视觉锚点**：首个 H2 单元存在需要证明或解释的实质信息时，把对应视觉放在标题后的前两段内，并在计划中记录 `first_section_visual_anchor.status: present` 与 `visual_id`。确实没有视觉信息增益时可记录 `skipped` 或 `not_applicable`，但必须写具体 `skip_reason`。
+- **章节视觉**：通常放在章节第一段之后，让读者先知道应该看什么；不得把第一个正文视觉拖到多个长段落以后。
 - **数据视觉**：数字、时间线、矩阵、流程和比较使用 SVG 或 HTML 图形。
 - **证据图片**：截图或用户图片靠近它支持的主张。
 - **外部语境截图**：文章引用或实质依赖公共页面、论文、信息网站、社交网络或技术社区讨论时使用；不能因为主题公开就随意加图。
 - **新闻证据**：事件、争议或报道型文章中，证据截图属于必需信任层。靠近对应主张放置；无法截取时记录真实失败原因。
 - **结尾图片**：可选，只有能形成最终综合判断时才使用，禁止纯装饰。
 
-禁止连续放置超过两张大图。文字、图片、图注和分析要交替出现。
+图片、SVG、大卡片、引用、表格、矩阵、步骤块和长截图统一视为强视觉块。相邻强视觉块之间必须有承担新信息的正文解释；禁止依赖“它不是图片”规避密度判断。
+
+同一语义只保留一种主要视觉表达：同一组数字不能先做数字卡再紧接同义柱状图；同一组步骤不能先做步骤卡再紧接同义流程图。证据截图与解释图可以同时存在，但必须职责不同，并由正文明确完成从“事实证据”到“机制解释”的过渡。
 
 强视觉之后不要立即重复同一种动作。大首图或照片后接文字、紧凑卡片组或图表；密集截图后先解释，再放下一张证据图。
 
@@ -74,7 +77,8 @@
 - 在 Codex 中使用可用浏览器导航和截图工具打开来源，截取有意义区域。只有在适当且获授权时才使用用户已登录的浏览器状态。
 - 保留来源身份和足够上下文，证明页面是什么。脱离语境的一小句文字证据很弱。
 - 能访问原始页面时禁止截搜索结果。绝不使用代码重建帖子、引语、标志、标题或界面，再把它称为证据。
-- 记录 `source_url`、`source_tier`、截取状态、素材路径、图注，以及受阻时的失败原因。
+- 默认使用 `crop_strategy: focused`，裁到支持主张的关键区域。只有关键上下文跨越整段页面且裁切会损坏证据时，才使用 `crop_strategy: full_context`；高宽比超过 `1.55` 的长截图必须写 `full_context_reason`。
+- 记录 `source_url`、`source_tier`、截取状态、素材路径、最终 `asset_dimensions`、图注，以及受阻时的失败原因。
 - 新闻与混合新闻评论最终交付前至少截取一张截图；除非全部尝试都明确记录为不可访问。
 
 ### 路线 3：`generated_image`
@@ -83,7 +87,7 @@
 - 先检查当前 Agent 的工具。有图片生成能力时，每个 `generated_image` 都必须调用真实工具，正文图与首图、封面都一样。
 - Codex 使用 Image Gen；其他 Agent 使用其原生图片能力，并在计划中记录真实提供方。
 - 禁止因为代码更快，就把 Image Gen 任务悄悄替换成 SVG/HTML。只有语义分析确认它实际属于结构图时，才能修改路线。
-- 当前 Agent 只有脚本/API 图片生成能力，或明确运行自动化 `publish --gen-cover` 时，可以使用脚本/API。
+- 当前 Agent 只有脚本/API 图片生成能力时，可以使用它生成候选图，但必须先独立查看候选图并完成视觉 QA，再把确定文件交给正式发布命令。
 - 提示词来自附近段落，并包含：角色、读者所得、具体隐喻或主体、氛围、配色、目标裁切、手机构图和排除项。首图额外写入完整标题、`2.35:1` 与文字融合规则。
 - 首图必须带准确标题，其他位图禁止文章标题、图注、伪界面、伪社交帖子、标志、水印或海报布局。
 
@@ -123,13 +127,29 @@ cd scripts && npx tsx img2base64.ts "<image-url-or-local-path>" --max-kb 980
 
 ```json
 {
+  "interaction_contract_version": 2,
+  "content_choice": "C",
+  "delivery_choice": "A",
+  "choice_source": "upstream_user_confirmation",
   "runtime": "codex",
+  "destination": "wechat_official_account",
+  "entry_mode": "skill_handoff",
+  "handoff_version": 1,
+  "source_skill": "any-content-skill",
+  "input_stage": "final_copy",
   "content_mode": "preserve",
+  "delivery_mode": "copy_ready",
+  "draft_authorization": "none",
+  "body_image_upload_authorization": "copy_ready_request",
   "image_generation_capability": "available",
   "image_generation_tool": "imagegen",
   "content_type": "mixed_news_commentary",
   "classification_confidence": 0.9,
   "classification_signals": ["recent company response", "article cites an official page"],
+  "first_section_visual_anchor": {
+    "status": "present",
+    "visual_id": "official-evidence"
+  },
   "supplied_assets": [
     {
       "id": "user-video-1",
@@ -149,7 +169,7 @@ cd scripts && npx tsx img2base64.ts "<image-url-or-local-path>" --max-kb 980
       "source_type": "generated_image",
       "semantic_reason": "maps the trust conflict into one editorial metaphor",
       "title_text": "文章的准确 H1",
-      "prompt": "2.35:1 premium editorial metaphor with the exact title naturally integrated into the quiet area",
+      "prompt": "2.35:1 premium editorial metaphor with the exact title 文章的准确 H1 naturally integrated into the quiet area",
       "provider": "imagegen",
       "status": "planned"
     },
@@ -161,8 +181,10 @@ cd scripts && npx tsx img2base64.ts "<image-url-or-local-path>" --max-kb 980
       "role": "evidence",
       "source_type": "evidence_screenshot",
       "semantic_reason": "proves the official response and wording",
+      "semantic_signature": ["official response", "response wording"],
       "source_url": "https://example.com/official",
       "source_tier": "official",
+      "crop_strategy": "focused",
       "status": "planned"
     },
     {
@@ -175,6 +197,7 @@ cd scripts && npx tsx img2base64.ts "<image-url-or-local-path>" --max-kb 980
       "asset_ref": "user-video-1",
       "frame_timestamp": "00:01:42",
       "semantic_reason": "shows the exact behavior in the supplied video",
+      "semantic_signature": ["product behavior", "user video frame"],
       "status": "planned"
     },
     {
@@ -186,6 +209,7 @@ cd scripts && npx tsx img2base64.ts "<image-url-or-local-path>" --max-kb 980
       "source_type": "coded_visual",
       "semantic_kind": "process",
       "semantic_reason": "turns the four-step mechanism into a readable flow",
+      "semantic_signature": ["step one", "step two", "step three", "step four"],
       "status": "planned"
     }
   ]
@@ -199,9 +223,11 @@ npm run verify-image-plan -- --stage plan --article <source-article> <image-plan
 npm run verify-image-plan -- --stage final --article <source-article> --check-files <image-plan.json>
 ```
 
-最终阶段把 `status` 改为 `ready`、`captured` 或 `attempt_failed`，并补充 `asset_path`、图注、提供方或来源细节。已截取证据还要记录 ISO 时间 `captured_at` 和 `asset_sha256: sha256:<64位哈希>`；真实访问失败记录 `failure_code`（`http_error|access_denied|login_required|network_error|removed|policy_blocked`）、`attempted_at` 和具体原因。`runtime` 不能为空；`content_mode` 必须与开局选择一致。使用 `--check-files` 时，首图必须是带 `title_text` 的 `generated_image`、状态为 `ready` 且比例为 `2.35:1`；证据截图至少 `320×120`。其他文件、来源与证据安全规则保持不变。
+最终阶段把 `status` 改为 `ready`、`captured` 或 `attempt_failed`，并补充 `asset_path`、`asset_dimensions`、图注、提供方或来源细节。每个非首图视觉填写 2 至 12 个能代表其信息内容的 `semantic_signature`，优先使用附近的标签、数字、步骤名或对象名。已截取证据和每个 `coded_visual` 都要记录与真实文件一致的 `asset_sha256: sha256:<64位哈希>`；证据图另记 ISO 时间 `captured_at`。真实访问失败记录 `failure_code`（`http_error|access_denied|login_required|network_error|removed|policy_blocked`）、`attempted_at` 和具体原因。
 
-正文按 `order` 放置每个视觉，并在实际 `<img>` 上写 `data-wlp-visual-id="计划 id"`；内联 SVG/HTML 写在其最外层节点。每个视觉只标记一次。发布预检会按 ID 和顺序逐项对账，并对所有位图下载真实字节后核对内容哈希，包括已经是微信 URL 的图片。
+`interaction_contract_version` 固定为 `2`。`content_choice`、`delivery_choice` 与 `choice_source` 必须来自开局确认或可追溯的上游用户确认。`runtime` 不能为空。`destination` 固定为 `wechat_official_account`。`entry_mode`、`input_stage`、`content_mode`、`delivery_mode`、`draft_authorization` 和 `body_image_upload_authorization` 必须与用户确认一致。`skill_handoff` 必须记录 `handoff_version: 1` 和任意非空的 `source_skill`；`messy_materials` 和 `draft_copy` 必须对应 `rewrite`，`final_copy` 必须对应 `preserve`。`copy_ready` 必须使用 `draft_authorization: none` 与 `body_image_upload_authorization: copy_ready_request`；`draft` 必须记录相匹配的草稿授权和图片上传授权。使用 `--check-files` 时，首图必须是带 `title_text` 的 `generated_image`，提示词含准确标题与 `2.35:1`，状态为 `ready`，源文件至少 `900×383` 且比例为 `2.35:1`；证据截图至少 `320×120`。
+
+正文按 `order` 放置每个视觉，并在实际 `<img>` 上写 `data-wlp-visual-id="计划 id"`；内联 SVG/HTML 写在其最外层节点。每个视觉只标记一次。发布预检会按 ID 和顺序逐项对账，并对所有位图下载真实字节后核对内容哈希，包括已经是微信 URL 的图片；SVG/HTML 代码图还会核对计划哈希，并要求确定文件内容原样出现一次，防止计划后被替换。
 
 ## 质量检查
 
@@ -210,11 +236,14 @@ npm run verify-image-plan -- --stage final --article <source-article> --check-fi
 - 新闻/事件与混合新闻文章至少有一张来自官方、原始社交来源、可信媒体或社区的证据截图；只有明确记录访问失败并获允许时例外。
 - 每个相关用户图片或视频已使用，或有明确跳过原因。
 - 每个 `generated_image` 记录真实可用工具；Codex 记录 Image Gen，包括首图后的正文图。
-- 同一 `section` 出现第二张视觉，或多张图使用相同 `semantic_reason` 时，验证器会发出复审警告；只在职责确实不同的情况下保留。
+- 首个 H2 单元已经记录靠前的语义视觉锚点，或写明可核查的跳过理由。
+- 同一 `section` 出现第二张视觉时，后续每张都必须填写 `density_override_reason`，说明与前图不同的证据、数据、流程或机制职责。它不能覆盖相邻重视觉、连续长截图或语义重复失败。最终计划中禁止多张图复用同一个 `semantic_reason`。
+- 相邻视觉的 `semantic_signature` 不重复表达同一组数据、步骤或标签。
 - 图片生成不可用时，非首图生成需求可有已标注的代码替代稿；首图保留提示词并停在本地工作预览。
 - 每个 `coded_visual` 都承担结构职责，不能作为首图或证据。
 - 首图焦点清楚，并通过 `visual-quality.md`。
 - 截图在手机宽度下可读。
+- 证据截图优先聚焦裁切；保留的长截图有不可裁的上下文理由，同一阅读区间不连续出现长截图。
 - 首图标题准确并融入构图；其他生成图无文字瑕疵、标志、伪界面或水印状痕迹。
 - 裁切保留人脸、手、产品、界面文字和支持主张的语境。
 - 图片与附近文字节奏交替，不能连续堆大幅装饰图。

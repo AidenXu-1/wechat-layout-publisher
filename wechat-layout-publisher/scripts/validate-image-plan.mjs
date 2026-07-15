@@ -43,6 +43,12 @@ const issues = [];
 const warnings = [];
 const contentTypes = new Set(["news_event", "mixed_news_commentary", "product_tool", "opinion", "knowledge", "experience", "narrative"]);
 const contentModes = new Set(["rewrite", "preserve"]);
+const entryModes = new Set(["direct", "skill_handoff"]);
+const inputStages = new Set(["messy_materials", "draft_copy", "final_copy"]);
+const deliveryModes = new Set(["copy_ready", "draft"]);
+const draftAuthorizations = new Set(["none", "direct_request", "post_preview_confirmation"]);
+const bodyImageUploadAuthorizations = new Set(["copy_ready_request", "draft_request", "post_preview_confirmation"]);
+const choiceSources = new Set(["direct_user", "upstream_user_confirmation"]);
 const sourceTypes = new Set(["user_asset", "evidence_screenshot", "generated_image", "coded_visual"]);
 const roles = new Set(["hero", "evidence", "explainer", "data", "object", "divider"]);
 const codedKinds = new Set(["process", "relationship", "timeline", "framework", "comparison", "data", "mechanism"]);
@@ -52,6 +58,22 @@ const evidenceFailureCodes = new Set(["http_error", "access_denied", "login_requ
 
 function nonEmpty(value) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function semanticSignature(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter(nonEmpty).map((item) => item.trim().toLowerCase()))];
+}
+
+function validDimensions(value) {
+  return (
+    value &&
+    typeof value === "object" &&
+    Number.isInteger(value.width) &&
+    value.width > 0 &&
+    Number.isInteger(value.height) &&
+    value.height > 0
+  );
 }
 
 function validDataSource(value) {
@@ -156,7 +178,79 @@ function detectNewsSignals(raw) {
 }
 
 if (!contentTypes.has(plan.content_type)) issues.push(`Unknown content_type: ${String(plan.content_type)}`);
+if (plan.interaction_contract_version !== 2) {
+  issues.push("interaction_contract_version must be 2 so the current three-mode opening contract cannot silently regress.");
+}
+if (!new Set(["A", "B", "C"]).has(plan.content_choice)) {
+  issues.push("content_choice must record A, B, or C from the three content-processing modes.");
+}
+if (!new Set(["A", "B"]).has(plan.delivery_choice)) {
+  issues.push("delivery_choice must record A or B from the delivery modes.");
+}
+if (!choiceSources.has(plan.choice_source)) {
+  issues.push("choice_source must be direct_user or upstream_user_confirmation.");
+}
+if (plan.destination !== "wechat_official_account") {
+  issues.push("destination must be wechat_official_account for this Skill.");
+}
 if (!contentModes.has(plan.content_mode)) issues.push("content_mode must be rewrite or preserve.");
+if (!entryModes.has(plan.entry_mode)) issues.push("entry_mode must be direct or skill_handoff.");
+if (!inputStages.has(plan.input_stage)) issues.push("input_stage must be messy_materials, draft_copy, or final_copy.");
+if (!deliveryModes.has(plan.delivery_mode)) issues.push("delivery_mode must be copy_ready or draft.");
+if (!draftAuthorizations.has(plan.draft_authorization)) {
+  issues.push("draft_authorization must be none, direct_request, or post_preview_confirmation.");
+}
+if (!bodyImageUploadAuthorizations.has(plan.body_image_upload_authorization)) {
+  issues.push("body_image_upload_authorization must record copy_ready_request, draft_request, or post_preview_confirmation.");
+}
+if (plan.entry_mode === "skill_handoff" && !nonEmpty(plan.source_skill)) {
+  issues.push("source_skill is required when entry_mode=skill_handoff.");
+}
+if (plan.entry_mode === "skill_handoff" && plan.handoff_version !== 1) {
+  issues.push("handoff_version must be 1 when entry_mode=skill_handoff.");
+}
+if (plan.entry_mode === "direct" && plan.choice_source === "upstream_user_confirmation") {
+  issues.push("entry_mode=direct cannot use choice_source=upstream_user_confirmation.");
+}
+const contentChoiceContract = {
+  A: ["messy_materials", "rewrite"],
+  B: ["draft_copy", "rewrite"],
+  C: ["final_copy", "preserve"],
+};
+const selectedContentContract = contentChoiceContract[plan.content_choice];
+if (
+  selectedContentContract &&
+  (plan.input_stage !== selectedContentContract[0] || plan.content_mode !== selectedContentContract[1])
+) {
+  issues.push(
+    `content_choice=${plan.content_choice} must map to input_stage=${selectedContentContract[0]} and content_mode=${selectedContentContract[1]}.`,
+  );
+}
+const deliveryChoiceContract = { A: "copy_ready", B: "draft" };
+if (deliveryChoiceContract[plan.delivery_choice] && plan.delivery_mode !== deliveryChoiceContract[plan.delivery_choice]) {
+  issues.push(`delivery_choice=${plan.delivery_choice} must map to delivery_mode=${deliveryChoiceContract[plan.delivery_choice]}.`);
+}
+if (new Set(["messy_materials", "draft_copy"]).has(plan.input_stage) && plan.content_mode !== "rewrite") {
+  issues.push(`${plan.input_stage} must use content_mode=rewrite.`);
+}
+if (plan.input_stage === "final_copy" && plan.content_mode !== "preserve") {
+  issues.push("final_copy must use content_mode=preserve.");
+}
+if (plan.delivery_mode === "copy_ready" && plan.draft_authorization !== "none") {
+  issues.push("delivery_mode=copy_ready must use draft_authorization=none.");
+}
+if (plan.delivery_mode === "copy_ready" && plan.body_image_upload_authorization !== "copy_ready_request") {
+  issues.push("delivery_mode=copy_ready requires body_image_upload_authorization=copy_ready_request.");
+}
+if (plan.delivery_mode === "draft" && !new Set(["direct_request", "post_preview_confirmation"]).has(plan.draft_authorization)) {
+  issues.push("delivery_mode=draft requires explicit draft_authorization.");
+}
+if (
+  plan.delivery_mode === "draft" &&
+  !new Set(["draft_request", "post_preview_confirmation"]).has(plan.body_image_upload_authorization)
+) {
+  issues.push("delivery_mode=draft requires explicit body-image upload authorization.");
+}
 if (!nonEmpty(plan.runtime)) issues.push("runtime is required so provider checks cannot be bypassed.");
 if (typeof plan.classification_confidence !== "number" || plan.classification_confidence < 0 || plan.classification_confidence > 1) {
   issues.push("classification_confidence must be a number from 0 to 1.");
@@ -170,14 +264,32 @@ if (!new Set(["available", "unavailable"]).has(plan.image_generation_capability)
 if (plan.image_generation_capability === "available" && !nonEmpty(plan.image_generation_tool)) {
   issues.push("image_generation_tool is required when image generation is available.");
 }
+const firstSectionAnchor = plan.first_section_visual_anchor;
+if (!firstSectionAnchor || typeof firstSectionAnchor !== "object") {
+  issues.push("first_section_visual_anchor is required and must record present, skipped, or not_applicable.");
+} else if (!new Set(["present", "skipped", "not_applicable"]).has(firstSectionAnchor.status)) {
+  issues.push("first_section_visual_anchor.status must be present, skipped, or not_applicable.");
+} else if (firstSectionAnchor.status === "present" && !nonEmpty(firstSectionAnchor.visual_id)) {
+  issues.push("first_section_visual_anchor.visual_id is required when status=present.");
+} else if (
+  new Set(["skipped", "not_applicable"]).has(firstSectionAnchor.status) &&
+  (!nonEmpty(firstSectionAnchor.skip_reason) || firstSectionAnchor.skip_reason.replace(/\s+/g, "").length < 12)
+) {
+  issues.push("Skipping the first-section visual anchor requires a concrete skip_reason of at least 12 characters.");
+}
 
 if (articleFile) {
   if (!existsSync(articleFile)) issues.push(`Article file not found: ${articleFile}`);
   else {
     const detectedSignals = detectNewsSignals(readFileSync(articleFile, "utf8"));
-    const strongNewsSignal = detectedSignals.includes("public event action") || detectedSignals.includes("reported quote or response");
-    if ((detectedSignals.length >= 2 || strongNewsSignal) && !newsTypes.has(plan.content_type)) {
+    const hasEventAction = detectedSignals.includes("public event action");
+    const highConfidenceNews = hasEventAction && detectedSignals.length >= 3;
+    if (highConfidenceNews && !newsTypes.has(plan.content_type)) {
       issues.push(`Article looks news-like but content_type=${plan.content_type}. Detected: ${detectedSignals.join(", ")}. Reclassify as news_event or mixed_news_commentary.`);
+    } else if (hasEventAction && detectedSignals.length >= 2 && !newsTypes.has(plan.content_type)) {
+      warnings.push(
+        `Article contains some news-like wording but lacks enough combined evidence for forced reclassification: ${detectedSignals.join(", ")}. Review context manually.`,
+      );
     }
   }
 }
@@ -217,6 +329,10 @@ for (const [index, visual] of visuals.entries()) {
   if (!roles.has(visual.role)) issues.push(`${label}.role is invalid.`);
   if (!nonEmpty(visual.section) || !nonEmpty(visual.placement)) issues.push(`${label} needs section and placement.`);
   if (!nonEmpty(visual.semantic_reason)) issues.push(`${label}.semantic_reason must explain why this route fits the nearby text.`);
+  const signature = semanticSignature(visual.semantic_signature);
+  if (visual.role !== "hero" && visual.status !== "attempt_failed" && (signature.length < 2 || signature.length > 12)) {
+    issues.push(`${label}.semantic_signature must contain 2-12 distinct nearby labels, numbers, or step names for repetition checks.`);
+  }
   if (stage === "final" && visual.status !== "ready" && visual.status !== "captured" && visual.status !== "attempt_failed") {
     issues.push(`${label}.status must be ready, captured, or attempt_failed at final stage.`);
   }
@@ -237,6 +353,9 @@ for (const [index, visual] of visuals.entries()) {
     if (!nonEmpty(visual.source_url) || !/^https?:\/\//i.test(visual.source_url)) issues.push(`${label}.source_url must be an http(s) source.`);
     if (!new Set(["official", "primary_social", "reputable_media", "community"]).has(visual.source_tier)) {
       issues.push(`${label}.source_tier must identify the evidence authority.`);
+    }
+    if (!new Set(["focused", "full_context"]).has(visual.crop_strategy)) {
+      issues.push(`${label}.crop_strategy must be focused or full_context.`);
     }
     if (stage === "final" && visual.status === "captured") {
       if (!nonEmpty(visual.captured_at) || !Number.isFinite(Date.parse(visual.captured_at))) {
@@ -300,6 +419,22 @@ for (const [index, visual] of visuals.entries()) {
   if (stage === "final" && visual.status !== "attempt_failed" && !nonEmpty(visual.asset_path)) {
     issues.push(`${label}.asset_path is required at final stage.`);
   }
+  if (stage === "final" && visual.status !== "attempt_failed" && !validDimensions(visual.asset_dimensions)) {
+    issues.push(`${label}.asset_dimensions must record positive integer width and height at final stage.`);
+  }
+  if (
+    stage === "final" &&
+    visual.source_type === "evidence_screenshot" &&
+    validDimensions(visual.asset_dimensions) &&
+    visual.asset_dimensions.height / visual.asset_dimensions.width > 1.55
+  ) {
+    if (visual.crop_strategy !== "full_context") {
+      issues.push(`${label} remains a tall screenshot after focused cropping; crop to the key evidence area or mark full_context with a reason.`);
+    }
+    if (!nonEmpty(visual.full_context_reason) || visual.full_context_reason.replace(/\s+/g, "").length < 12) {
+      issues.push(`${label}.full_context_reason is required for a tall evidence screenshot.`);
+    }
+  }
   if (checkFiles && stage === "final" && visual.status !== "attempt_failed" && nonEmpty(visual.asset_path)) {
     if (/^https?:/i.test(visual.asset_path)) {
       issues.push(`${label}.asset_path must be a downloaded local PNG/JPEG for final verification, not a remote URL.`);
@@ -311,6 +446,31 @@ for (const [index, visual] of visuals.entries()) {
       if (!valid) {
         const expected = visual.source_type === "coded_visual" ? "safe PNG/JPEG/SVG/inline-HTML file" : "PNG/JPEG file";
         issues.push(`${label}.asset_path must be an existing ${expected}: ${visual.asset_path}`);
+      }
+      if (visual.source_type === "coded_visual" && valid) {
+        const actualHash = `sha256:${createHash("sha256").update(readFileSync(resolvedPath)).digest("hex")}`;
+        if (!/^sha256:[a-f0-9]{64}$/i.test(visual.asset_sha256 || "")) {
+          issues.push(`${label}.asset_sha256 is required to bind coded visual bytes.`);
+        } else if (visual.asset_sha256 !== actualHash) {
+          issues.push(`${label}.asset_sha256 does not match the coded visual file.`);
+        }
+      }
+    }
+    const assetExtension = /^data:/i.test(visual.asset_path) ? "" : extname(visual.asset_path).toLowerCase();
+    if (!new Set([".html", ".htm"]).has(assetExtension)) {
+      try {
+        const actualDimensions = await visualDimensions(visual.asset_path);
+        if (
+          actualDimensions &&
+          validDimensions(visual.asset_dimensions) &&
+          (actualDimensions.width !== visual.asset_dimensions.width || actualDimensions.height !== visual.asset_dimensions.height)
+        ) {
+          issues.push(
+            `${label}.asset_dimensions does not match the final file; recorded ${visual.asset_dimensions.width}x${visual.asset_dimensions.height}, actual ${actualDimensions.width}x${actualDimensions.height}.`,
+          );
+        }
+      } catch (error) {
+        issues.push(`${label} dimensions could not be verified: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     if (visual.source_type === "evidence_screenshot" && visual.status === "captured") {
@@ -335,6 +495,12 @@ const firstVisual = [...visuals].sort((a, b) => (a.order || 0) - (b.order || 0))
 if (firstVisual?.source_type !== "generated_image") issues.push("The first visual must use source_type=generated_image.");
 if (firstVisual?.role !== "hero") issues.push("The first visual must use role=hero.");
 if (!nonEmpty(firstVisual?.title_text)) issues.push("The first visual must record the exact integrated article title in title_text.");
+if (nonEmpty(firstVisual?.title_text) && !String(firstVisual?.prompt || "").includes(firstVisual.title_text)) {
+  issues.push("The first visual prompt must include the exact title_text so the generation request is auditable.");
+}
+if (!/2\.35\s*:\s*1/i.test(String(firstVisual?.prompt || ""))) {
+  issues.push("The first visual prompt must explicitly require the 2.35:1 article-hero ratio.");
+}
 if (stage === "final" && firstVisual?.status !== "ready") issues.push("The generated hero must have status=ready at final stage.");
 if (
   stage === "final" &&
@@ -349,6 +515,11 @@ if (
       warnings.push("The first visual dimensions could not be verified automatically; inspect its 2.35:1 composition manually.");
     } else {
       const ratio = dimensions.width / dimensions.height;
+      if (dimensions.width < 900 || dimensions.height < 383) {
+        issues.push(
+          `The first visual is too small for stable WeChat delivery; require at least 900x383 source pixels, got ${dimensions.width}x${dimensions.height}.`,
+        );
+      }
       if (Math.abs(ratio - headlineRatio) / headlineRatio > 0.02) {
         issues.push(
           `The first visual must use the 2.35:1 article-hero ratio; got ${dimensions.width}x${dimensions.height} (${ratio.toFixed(2)}:1).`,
@@ -375,13 +546,37 @@ for (const visual of orderedVisuals) {
 }
 for (const [section, items] of bySection) {
   if (items.length > 1) {
-    warnings.push(
-      `Reading unit "${section}" has ${items.length} visuals. Keep more than one only when they have distinct evidence/data/process/mechanism jobs.`,
-    );
+    const extrasWithoutReason = items.slice(1).filter((visual) => !nonEmpty(visual.density_override_reason));
+    if (stage === "final" && extrasWithoutReason.length) {
+      issues.push(
+        `Reading unit "${section}" has ${items.length} visuals. Every visual after the first needs density_override_reason explaining its distinct job.`,
+      );
+    } else {
+      warnings.push(
+        `Reading unit "${section}" has ${items.length} visuals with explicit density exceptions. The exception only requests review; verify-layout must still approve spacing, weight, screenshot ratio, and semantic uniqueness.`,
+      );
+    }
+  }
+}
+for (let index = 0; index < orderedVisuals.length - 1; index++) {
+  const left = orderedVisuals[index];
+  const right = orderedVisuals[index + 1];
+  if (String(left.section || "").trim().toLowerCase() !== String(right.section || "").trim().toLowerCase()) continue;
+  const leftSignature = semanticSignature(left.semantic_signature);
+  const rightSignature = new Set(semanticSignature(right.semantic_signature));
+  const overlap = leftSignature.filter((item) => rightSignature.has(item));
+  if (overlap.length >= 2) {
+    const message = `Adjacent visuals ${left.id} and ${right.id} repeat semantic_signature values: ${overlap.join(", ")}`;
+    if (stage === "final") issues.push(message);
+    else warnings.push(message);
   }
 }
 for (const [reason, owners] of reasonOwners) {
-  if (owners.length > 1) warnings.push(`Visuals ${owners.join(", ")} repeat the same semantic reason: ${reason}`);
+  if (owners.length > 1) {
+    const message = `Visuals ${owners.join(", ")} repeat the same semantic reason: ${reason}`;
+    if (stage === "final") issues.push(message);
+    else warnings.push(message);
+  }
 }
 
 if (

@@ -1,0 +1,41 @@
+{
+  "source_run": "2026-07-15 Ollama end-to-end WeChat acceptance",
+  "viewport_width_px": 390,
+  "screenshots": [
+    {
+      "file": "01-unexplained-whitespace.png",
+      "sha256": "75ea32250d0b80ab6d42c49d9024871510bc2dbf84778d03ad1bdb42202eb3df",
+      "width": 998,
+      "height": 1432,
+      "issue": "raw_markdown_separator_and_unexplained_gap"
+    },
+    {
+      "file": "02-whitespace-before-heading.png",
+      "sha256": "027c379eb759b6e0583e88b1b2c897aaf531ca585222c25dafaa7ccee2ac3b1d",
+      "width": 1044,
+      "height": 920,
+      "issue": "stacked_vertical_spacing_before_heading"
+    },
+    {
+      "file": "03-first-section-missing-visual-anchor.png",
+      "sha256": "d95ba3ea5e17550b86e883761d68a70fe16d8b4ce4f53cef981bb6dba0a903d1",
+      "width": 924,
+      "height": 1536,
+      "issue": "late_first_section_visual_anchor"
+    },
+    {
+      "file": "04-duplicate-data-visual-blocks.png",
+      "sha256": "f28285e8b7ca9b13934069ef37a5a5ff4b87f6bfb7e52c21d0b752e746a017d3",
+      "width": 856,
+      "height": 772,
+      "issue": "duplicate_data_visual_expression"
+    },
+    {
+      "file": "05-duplicate-process-visual-blocks.png",
+      "sha256": "ed3827cd36f26132a30b80b17ea0ed14f2660ae374692663647e1c1b20aab6c6",
+      "width": 938,
+      "height": 1144,
+      "issue": "duplicate_process_visual_expression"
+    }
+  ]
+}

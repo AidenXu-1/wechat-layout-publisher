@@ -15,6 +15,7 @@
     "verify-copy": "node verify-copy.mjs",
     "verify-copy-ready": "node verify-copy-ready.mjs",
     "verify-image-plan": "node validate-image-plan.mjs",
+    "verify-layout": "tsx layout-qa.ts",
     "record-visual-qa": "tsx visual-qa.ts",
     "typecheck": "tsc --noEmit",
     "quick-validate": "node quick-validate.mjs",

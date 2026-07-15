@@ -13,7 +13,8 @@ import { assertSafeRemoteUrl, isBlockedIp } from "../safe-fetch.ts";
 import { coverPrompt, landscapeSize } from "../imagegen.ts";
 import { runPublish } from "../publish.ts";
 import type { PublisherDeps } from "../publish.ts";
-import { articleSha256, extractArticleFragment } from "../visual-qa.ts";
+import { articleSha256, detectRepeatedVerticalTiling, extractArticleFragment } from "../visual-qa.ts";
+import { inspectArticleLayout } from "../layout-qa.ts";
 import type { DraftArticle } from "../wechat.ts";
 
 const scriptDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -113,8 +114,10 @@ async function writeValidPlan(
   assetName: string,
   extraAssetNames: string[] = [],
   contentMode: "rewrite" | "preserve" = "rewrite",
+  deliveryMode: "copy_ready" | "draft" = "copy_ready",
 ): Promise<string> {
   const plan = join(dir, "image-plan.json");
+  const heroMetadata = await sharp(join(dir, assetName)).metadata();
   const visuals = [
     {
       id: "hero",
@@ -125,37 +128,58 @@ async function writeValidPlan(
       source_type: "generated_image",
       semantic_reason: "test editorial image",
       title_text: "一个完整的测试标题",
-      prompt: "2.35:1 editorial hero with the exact title integrated into the composition",
+      prompt: "2.35:1 editorial hero with the exact title 一个完整的测试标题 integrated into the composition",
       provider: "test-image-tool",
       status: "ready",
       asset_path: assetName,
+      asset_dimensions: { width: heroMetadata.width, height: heroMetadata.height },
     },
-    ...(await Promise.all(extraAssetNames.map(async (name, index) => ({
-      id: `evidence-${index + 1}`,
-      order: index + 2,
-      section: `evidence-${index + 1}`,
-      placement: "after supported claim",
-      role: "evidence",
-      source_type: "evidence_screenshot",
-      semantic_reason: `proves test claim ${index + 1}`,
-      source_url: `https://example.com/evidence-${index + 1}`,
-      source_tier: "official",
-      status: "captured",
-      captured_at: "2026-07-14T00:00:00.000Z",
-      asset_sha256: `sha256:${createHash("sha256").update(await readFile(join(dir, name))).digest("hex")}`,
-      asset_path: name,
-    })))),
+    ...(await Promise.all(extraAssetNames.map(async (name, index) => {
+      const metadata = await sharp(join(dir, name)).metadata();
+      return {
+        id: `evidence-${index + 1}`,
+        order: index + 2,
+        section: `evidence-${index + 1}`,
+        placement: "after supported claim",
+        role: "evidence",
+        source_type: "evidence_screenshot",
+        semantic_reason: `proves test claim ${index + 1}`,
+        semantic_signature: [`test claim ${index + 1}`, `evidence ${index + 1}`],
+        source_url: `https://example.com/evidence-${index + 1}`,
+        source_tier: "official",
+        crop_strategy: "focused",
+        status: "captured",
+        captured_at: "2026-07-14T00:00:00.000Z",
+        asset_sha256: `sha256:${createHash("sha256").update(await readFile(join(dir, name))).digest("hex")}`,
+        asset_path: name,
+        asset_dimensions: { width: metadata.width, height: metadata.height },
+      };
+    }))),
   ];
   await writeFile(
     plan,
     JSON.stringify({
+      interaction_contract_version: 2,
+      content_choice: contentMode === "preserve" ? "C" : "B",
+      delivery_choice: deliveryMode === "draft" ? "B" : "A",
+      choice_source: "direct_user",
       runtime: "test-agent",
+      destination: "wechat_official_account",
+      entry_mode: "direct",
+      input_stage: contentMode === "preserve" ? "final_copy" : "draft_copy",
       content_mode: contentMode,
+      delivery_mode: deliveryMode,
+      draft_authorization: deliveryMode === "draft" ? "direct_request" : "none",
+      body_image_upload_authorization: deliveryMode === "draft" ? "draft_request" : "copy_ready_request",
       image_generation_capability: "available",
       image_generation_tool: "test-image-tool",
       content_type: "opinion",
       classification_confidence: 0.9,
       classification_signals: ["non-news test article"],
+      first_section_visual_anchor: {
+        status: "not_applicable",
+        skip_reason: "测试短文没有二级正文标题，因此无需首节视觉锚点",
+      },
       supplied_assets: [],
       visuals,
     }),
@@ -189,16 +213,24 @@ test("headline cover is always cropped to 900x383", async () => {
   }
 });
 
-test("image plans require content mode, runtime, data provenance, and emit density review warnings", async () => {
+test("image plans require content mode, runtime, data provenance, and enforce final density exceptions", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wechat-plan-contract-test-"));
   try {
     const planPath = join(dir, "image-plan.json");
     const plan = {
+      interaction_contract_version: 2,
+      content_choice: "B",
+      delivery_choice: "A",
+      choice_source: "direct_user",
       image_generation_capability: "available",
       image_generation_tool: "test-image-tool",
       content_type: "knowledge",
       classification_confidence: 0.9,
       classification_signals: ["data-backed explanation"],
+      first_section_visual_anchor: {
+        status: "not_applicable",
+        skip_reason: "测试短文没有二级正文标题，因此无需首节视觉锚点",
+      },
       supplied_assets: [],
       visuals: [
         {
@@ -210,10 +242,11 @@ test("image plans require content mode, runtime, data provenance, and emit densi
           source_type: "generated_image",
           semantic_reason: "sets the explanatory frame",
           title_text: "一个完整的测试标题",
-          prompt: "2.35:1 editorial hero with the exact title integrated into the composition",
+          prompt: "2.35:1 editorial hero with the exact title 一个完整的测试标题 integrated into the composition",
           provider: "test-image-tool",
           status: "ready",
           asset_path: "hero.png",
+          asset_dimensions: { width: 900, height: 383 },
         },
         {
           id: "data",
@@ -224,8 +257,10 @@ test("image plans require content mode, runtime, data provenance, and emit densi
           source_type: "coded_visual",
           semantic_kind: "data",
           semantic_reason: "sets the explanatory frame",
+          semantic_signature: ["test dataset", "comparison chart"],
           status: "ready",
           asset_path: "data.svg",
+          asset_dimensions: { width: 640, height: 360 },
         },
       ],
     };
@@ -239,14 +274,52 @@ test("image plans require content mode, runtime, data provenance, and emit densi
     let result = run();
     assert.notEqual(result.status, 0);
     assert.match(`${result.stdout}${result.stderr}`, /runtime is required/i);
+    assert.match(`${result.stdout}${result.stderr}`, /destination must be wechat_official_account/i);
     assert.match(`${result.stdout}${result.stderr}`, /content_mode must be rewrite or preserve/i);
+    assert.match(`${result.stdout}${result.stderr}`, /entry_mode must be direct or skill_handoff/i);
+    assert.match(`${result.stdout}${result.stderr}`, /input_stage must be messy_materials, draft_copy, or final_copy/i);
+    assert.match(`${result.stdout}${result.stderr}`, /delivery_mode must be copy_ready or draft/i);
 
     (plan as typeof plan & { runtime: string }).runtime = "test-agent";
     (plan as typeof plan & { content_mode: string }).content_mode = "rewrite";
+    Object.assign(plan, {
+      destination: "wechat_official_account",
+      entry_mode: "direct",
+      input_stage: "draft_copy",
+      delivery_mode: "copy_ready",
+      draft_authorization: "none",
+      body_image_upload_authorization: "copy_ready_request",
+    });
     await writeFile(planPath, JSON.stringify(plan), "utf8");
     result = run();
     assert.notEqual(result.status, 0);
     assert.match(`${result.stdout}${result.stderr}`, /data_sources/i);
+
+    Object.assign(plan, {
+      destination: "xiaohongshu",
+      entry_mode: "skill_handoff",
+      source_skill: "any-content-skill",
+    });
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /destination must be wechat_official_account/i);
+    assert.match(`${result.stdout}${result.stderr}`, /handoff_version must be 1/i);
+    Object.assign(plan, {
+      destination: "wechat_official_account",
+      entry_mode: "direct",
+    });
+
+    (plan as typeof plan & { delivery_mode: string; draft_authorization: string }).delivery_mode = "draft";
+    (plan as typeof plan & { delivery_mode: string; draft_authorization: string }).draft_authorization = "none";
+    plan.delivery_choice = "B";
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /delivery_mode=draft requires explicit draft_authorization/i);
+    (plan as typeof plan & { delivery_mode: string; draft_authorization: string }).delivery_mode = "copy_ready";
+    (plan as typeof plan & { delivery_mode: string; draft_authorization: string }).draft_authorization = "none";
+    plan.delivery_choice = "A";
 
     (plan.visuals[1] as typeof plan.visuals[1] & { data_sources: string[] }).data_sources = ["invented-source"];
     await writeFile(planPath, JSON.stringify(plan), "utf8");
@@ -257,9 +330,87 @@ test("image plans require content mode, runtime, data provenance, and emit densi
     (plan.visuals[1] as typeof plan.visuals[1] & { data_sources: string[] }).data_sources = ["https://example.com/data"];
     await writeFile(planPath, JSON.stringify(plan), "utf8");
     result = run();
-    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
-    assert.match(`${result.stdout}${result.stderr}`, /Reading unit "lead" has 2 visuals/i);
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /density_override_reason/i);
     assert.match(`${result.stdout}${result.stderr}`, /repeat the same semantic reason/i);
+
+    Object.assign(plan.visuals[1], {
+      semantic_reason: "summarizes the cited data as a compact comparison",
+      density_override_reason: "The hero frames the article while this chart carries cited quantitative evidence.",
+    });
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+    assert.match(`${result.stdout}${result.stderr}`, /explicit density exceptions/i);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("skill handoff accepts any upstream only for a confirmed WeChat destination", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-generic-handoff-test-"));
+  try {
+    await sharp({ create: { width: 900, height: 383, channels: 3, background: "#efe6d9" } }).png().toFile(join(dir, "hero.png"));
+    const planPath = await writeValidPlan(dir, "hero.png");
+    const plan = JSON.parse(await readFile(planPath, "utf8"));
+    Object.assign(plan, {
+      entry_mode: "skill_handoff",
+      handoff_version: 1,
+      source_skill: "interview-summary-skill",
+    });
+    const run = () => spawnSync(process.execPath, [
+      resolve(scriptDir, "validate-image-plan.mjs"),
+      "--stage",
+      "final",
+      planPath,
+    ], { cwd: scriptDir, encoding: "utf8" });
+
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    let result = run();
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+
+    plan.destination = "xiaohongshu";
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /destination must be wechat_official_account/i);
+
+    plan.destination = "wechat_official_account";
+    plan.handoff_version = 2;
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /handoff_version must be 1/i);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("ordinary workflow wording does not force an experience article into news mode", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-news-context-test-"));
+  try {
+    await sharp({ create: { width: 900, height: 383, channels: 3, background: "#efe6d9" } }).png().toFile(join(dir, "hero.png"));
+    const planPath = await writeValidPlan(dir, "hero.png");
+    const plan = JSON.parse(await readFile(planPath, "utf8"));
+    plan.content_type = "experience";
+    plan.classification_signals = ["first-person workflow reflection"];
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    const article = join(dir, "article.md");
+    await writeFile(
+      article,
+      "以前的流程只有查资料、写初稿、修改、发布。没人确认今天要做几件事，工具只在内容发布等明确节点介入。",
+      "utf8",
+    );
+    const result = spawnSync(process.execPath, [
+      resolve(scriptDir, "validate-image-plan.mjs"),
+      "--stage",
+      "plan",
+      "--article",
+      article,
+      planPath,
+    ], { cwd: scriptDir, encoding: "utf8" });
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+    assert.match(`${result.stdout}${result.stderr}`, /review context manually/i);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -289,6 +440,7 @@ test("captured evidence requires provenance hash and phone-readable dimensions",
 
     await sharp({ create: { width: 640, height: 360, channels: 3, background: "#ffffff" } }).png().toFile(join(dir, "evidence.png"));
     plan.visuals[1].asset_sha256 = `sha256:${createHash("sha256").update(await readFile(join(dir, "evidence.png"))).digest("hex")}`;
+    plan.visuals[1].asset_dimensions = { width: 640, height: 360 };
     await writeFile(planPath, JSON.stringify(plan), "utf8");
     const readable = run();
     assert.equal(readable.status, 0, `${readable.stdout}${readable.stderr}`);
@@ -334,6 +486,7 @@ test("the first visual must be a ready 2.35:1 generated hero with an integrated 
     assert.match(`${result.stdout}${result.stderr}`, /title_text/i);
 
     plan.visuals[0].title_text = "一个完整的测试标题";
+    plan.visuals[0].prompt = "2.35:1 editorial hero with the exact title 一个完整的测试标题 integrated into the composition";
     plan.visuals[0].source_type = "user_asset";
     await writeFile(planPath, JSON.stringify(plan), "utf8");
     result = run();
@@ -346,6 +499,20 @@ test("the first visual must be a ready 2.35:1 generated hero with an integrated 
     result = run();
     assert.notEqual(result.status, 0);
     assert.match(`${result.stdout}${result.stderr}`, /generated hero must have status=ready/i);
+
+    plan.visuals[0].status = "ready";
+    plan.visuals[0].prompt = "2.35:1 editorial hero with a title integrated into the composition";
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /prompt must include the exact title_text/i);
+
+    plan.visuals[0].prompt = "2.35:1 editorial hero with the exact title 一个完整的测试标题 integrated into the composition";
+    await sharp({ create: { width: 450, height: 192, channels: 3, background: "#efe6d9" } }).png().toFile(join(dir, "hero.png"));
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /at least 900x383/i);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -453,7 +620,7 @@ test("draft publishing requires and enforces the final image plan before credent
     const output = `${result.stdout || ""}${result.stderr || ""}`;
     assert.notEqual(result.status, 0);
     assert.match(output, /Preflight validate-image-plan\.mjs failed/);
-    assert.match(output, /looks news-like/i);
+    assert.match(output, /news-like wording|review context manually/i);
     assert.doesNotMatch(output, /Fetching WeChat access token/);
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -469,8 +636,8 @@ test("all body images fail local preflight before credentials or WeChat requests
     await writeFile(article, completeArticle("bad.png"), "utf8");
     await writeFile(badImage, "not an image", "utf8");
     await sharp({ create: { width: 900, height: 383, channels: 3, background: "#ffffff" } }).png().toFile(cover);
-    const imagePlan = await writeValidPlan(dir, "cover.png");
-    const visualQa = await writeVisualQa(dir, article);
+    const imagePlan = await writeValidPlan(dir, "cover.png", [], "rewrite", "draft");
+    const visualQa = await writeVisualQa(dir, article, imagePlan);
     const result = spawnSync(
       process.execPath,
       ["--import", "tsx", resolve(scriptDir, "publish.ts"), article, "--title", "Preflight", "--image-plan", imagePlan, "--source-article", article, "--create-draft", "--visual-qa", visualQa, "--cover", cover],
@@ -496,8 +663,8 @@ test("article paths cannot escape allowed asset directories", async () => {
     await sharp({ create: { width: 20, height: 20, channels: 3, background: "#ffffff" } }).png().toFile(outside);
     await sharp({ create: { width: 900, height: 383, channels: 3, background: "#ffffff" } }).png().toFile(cover);
     await writeFile(article, completeArticle("../outside.png"), "utf8");
-    const imagePlan = await writeValidPlan(articleDir, "cover.png");
-    const visualQa = await writeVisualQa(articleDir, article);
+    const imagePlan = await writeValidPlan(articleDir, "cover.png", [], "rewrite", "draft");
+    const visualQa = await writeVisualQa(articleDir, article, imagePlan);
     const result = spawnSync(
       process.execPath,
       ["--import", "tsx", resolve(scriptDir, "publish.ts"), article, "--title", "Boundary", "--image-plan", imagePlan, "--source-article", article, "--create-draft", "--visual-qa", visualQa, "--cover", cover],
@@ -512,20 +679,30 @@ test("article paths cannot escape allowed asset directories", async () => {
   }
 });
 
-async function writeVisualQa(dir: string, article: string, suffix = ""): Promise<string> {
+async function writeVisualQa(dir: string, article: string, imagePlan: string, suffix = ""): Promise<string> {
   const viewportName = `qa-viewport${suffix}.png`;
   const fullPageName = `qa-full-page${suffix}.png`;
   const receipt = join(dir, `visual-qa${suffix}.json`);
   const viewportPath = join(dir, viewportName);
   const fullPagePath = join(dir, fullPageName);
-  await sharp({ create: { width: 390, height: 760, channels: 3, background: "#ffffff" } }).png().toFile(viewportPath);
-  await sharp({ create: { width: 390, height: 1800, channels: 3, background: "#ffffff" } }).png().toFile(fullPagePath);
+  const qaOverlay = (height: number) => Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="390" height="${height}"><rect x="20" y="30" width="350" height="150" fill="#efe6d9"/><rect x="20" y="210" width="280" height="12" fill="#252525"/><rect x="20" y="242" width="340" height="8" fill="#8f9b83"/><rect x="20" y="274" width="310" height="8" fill="#d68163"/><circle cx="330" cy="340" r="36" fill="#d68163"/></svg>`,
+  );
+  await sharp({ create: { width: 390, height: 760, channels: 3, background: "#ffffff" } })
+    .composite([{ input: qaOverlay(760) }])
+    .png()
+    .toFile(viewportPath);
+  await sharp({ create: { width: 390, height: 1800, channels: 3, background: "#ffffff" } })
+    .composite([{ input: qaOverlay(1800) }])
+    .png()
+    .toFile(fullPagePath);
   const html = extractArticleFragment(await readFile(article, "utf8"));
   await writeFile(
     receipt,
     JSON.stringify({
-      schema_version: 1,
+      schema_version: 2,
       article_sha256: articleSha256(html),
+      image_plan_sha256: createHash("sha256").update(await readFile(imagePlan)).digest("hex"),
       checked_width_px: 390,
       viewport_screenshot: viewportName,
       viewport_sha256: createHash("sha256").update(await readFile(viewportPath)).digest("hex"),
@@ -535,6 +712,19 @@ async function writeVisualQa(dir: string, article: string, suffix = ""): Promise
       full_page_checked: true,
       hero_title_exact: true,
       hero_text_integrated: true,
+      hero_no_extra_text: true,
+      no_horizontal_overflow: true,
+      no_broken_images: true,
+      all_visual_text_readable: true,
+      image_density_balanced: true,
+      visual_system_consistent: true,
+      no_unexplained_vertical_gaps: true,
+      no_raw_markdown_separators: true,
+      first_section_visual_anchor_checked: true,
+      no_adjacent_heavy_visual_blocks: true,
+      no_consecutive_tall_screenshots: true,
+      no_semantic_duplicate_visuals: true,
+      full_page_capture_stable: true,
       status: "passed",
       unresolved_issues: [],
       reviewed_at: "2026-07-14T00:00:00.000Z",
@@ -544,7 +734,11 @@ async function writeVisualQa(dir: string, article: string, suffix = ""): Promise
   return receipt;
 }
 
-async function writePublishFixture(dir: string, withSecondImage = false) {
+async function writePublishFixture(
+  dir: string,
+  withSecondImage = false,
+  deliveryMode: "copy_ready" | "draft" = "copy_ready",
+) {
   const hero = join(dir, "hero.png");
   const evidence = join(dir, "evidence.png");
   const cover = join(dir, "cover.png");
@@ -563,8 +757,8 @@ async function writePublishFixture(dir: string, withSecondImage = false) {
   await writeFile(article, `${completeArticle("hero.png")}\n${extra}`, "utf8");
   const source = join(dir, "source.html");
   await writeFile(source, await readFile(article, "utf8"), "utf8");
-  const imagePlan = await writeValidPlan(dir, "hero.png", withSecondImage ? ["evidence.png"] : []);
-  const visualQa = await writeVisualQa(dir, article);
+  const imagePlan = await writeValidPlan(dir, "hero.png", withSecondImage ? ["evidence.png"] : [], "rewrite", deliveryMode);
+  const visualQa = await writeVisualQa(dir, article, imagePlan);
   return { article, source, imagePlan, hero, evidence, cover, visualQa };
 }
 
@@ -677,6 +871,22 @@ test("Markdown cannot bypass component HTML and visual review into formal delive
   }
 });
 
+test("formal delivery rejects last-minute cover generation before any external call", async () => {
+  const { calls, deps } = publisherMock();
+  await assert.rejects(
+    () => runPublish([
+      "missing-article.html",
+      "--image-plan",
+      "missing-plan.json",
+      "--visual-qa",
+      "missing-qa.json",
+      "--gen-cover",
+    ], deps),
+    /--gen-cover is disabled.*bypass visual review/i,
+  );
+  assert.deepEqual(calls, { token: 0, body: [], cover: [], drafts: [], validated: [] });
+});
+
 test("missing or stale visual QA evidence stops before every WeChat request", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wechat-visual-qa-gate-test-"));
   try {
@@ -726,6 +936,8 @@ test("visual QA recorder validates screenshot artifacts and binds the current ar
       resolve(scriptDir, "visual-qa.ts"),
       "--article",
       fixture.article,
+      "--image-plan",
+      fixture.imagePlan,
       "--viewport-screenshot",
       join(dir, "qa-viewport.png"),
       "--full-page-screenshot",
@@ -735,6 +947,19 @@ test("visual QA recorder validates screenshot artifacts and binds the current ar
       "--out",
       out,
       "--confirm-reviewed",
+      "--confirm-hero-clean",
+      "--confirm-no-overflow",
+      "--confirm-no-broken-images",
+      "--confirm-visual-text-readable",
+      "--confirm-density-balanced",
+      "--confirm-visual-system",
+      "--confirm-no-unexplained-gaps",
+      "--confirm-no-raw-separators",
+      "--confirm-first-section-anchor",
+      "--confirm-no-heavy-visual-runs",
+      "--confirm-no-tall-screenshot-runs",
+      "--confirm-no-semantic-duplicates",
+      "--confirm-stable-full-page-capture",
     ];
     const missingHeroReview = spawnSync(process.execPath, baseArgs, { cwd: scriptDir, encoding: "utf8" });
     assert.notEqual(missingHeroReview.status, 0);
@@ -752,6 +977,18 @@ test("visual QA recorder validates screenshot artifacts and binds the current ar
     const receipt = JSON.parse(await readFile(out, "utf8"));
     assert.equal(receipt.article_sha256, articleSha256(extractArticleFragment(await readFile(fixture.article, "utf8"))));
     assert.equal(receipt.status, "passed");
+
+    const blankViewport = join(dir, "blank-viewport.png");
+    const blankFullPage = join(dir, "blank-full-page.png");
+    await sharp({ create: { width: 390, height: 760, channels: 3, background: "#ffffff" } }).png().toFile(blankViewport);
+    await sharp({ create: { width: 390, height: 1800, channels: 3, background: "#ffffff" } }).png().toFile(blankFullPage);
+    const blankArgs = [...baseArgs, "--confirm-hero-title", "--confirm-hero-integration"];
+    blankArgs[blankArgs.indexOf("--viewport-screenshot") + 1] = blankViewport;
+    blankArgs[blankArgs.indexOf("--full-page-screenshot") + 1] = blankFullPage;
+    blankArgs[blankArgs.indexOf("--out") + 1] = join(dir, "blank-receipt.json");
+    const blankResult = spawnSync(process.execPath, blankArgs, { cwd: scriptDir, encoding: "utf8" });
+    assert.notEqual(blankResult.status, 0);
+    assert.match(`${blankResult.stdout}${blankResult.stderr}`, /blank or nearly uniform/i);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -763,7 +1000,9 @@ test("formal delivery rejects a generated hero whose title record differs from t
     const fixture = await writePublishFixture(dir);
     const plan = JSON.parse(await readFile(fixture.imagePlan, "utf8"));
     plan.visuals[0].title_text = "不一致的标题";
+    plan.visuals[0].prompt = "2.35:1 editorial hero with the exact title 不一致的标题 integrated into the composition";
     await writeFile(fixture.imagePlan, JSON.stringify(plan), "utf8");
+    const updatedVisualQa = await writeVisualQa(dir, fixture.article, fixture.imagePlan, "-hero-title-mismatch");
     const { calls, deps } = publisherMock();
     await assert.rejects(
       () => runPublish([
@@ -774,7 +1013,7 @@ test("formal delivery rejects a generated hero whose title record differs from t
         "--source-article",
         fixture.source,
         "--visual-qa",
-        fixture.visualQa,
+        updatedVisualQa,
         "--write-uploaded-fragment",
         join(dir, "prepared.html"),
       ], deps),
@@ -789,11 +1028,11 @@ test("formal delivery rejects a generated hero whose title record differs from t
 test("draft mode reuses a prepared fragment and sends only article HTML to draft/add", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wechat-prepared-draft-test-"));
   try {
-    const fixture = await writePublishFixture(dir);
+    const fixture = await writePublishFixture(dir, false, "draft");
     const preparedBody = completeArticle("https://mmbiz.qpic.cn/mock/prepared.png");
     const prepared = join(dir, "prepared.html");
     await writeFile(prepared, `<!-- ARTICLE HTML START -->\n${preparedBody}\n<!-- ARTICLE HTML END -->\n`, "utf8");
-    const visualQa = await writeVisualQa(dir, prepared, "-prepared");
+    const visualQa = await writeVisualQa(dir, prepared, fixture.imagePlan, "-prepared");
     const { calls, deps, hostedContent } = publisherMock();
     hostedContent.set("https://mmbiz.qpic.cn/mock/prepared.png", await readFile(fixture.hero));
     const result = await runPublish(
@@ -829,7 +1068,7 @@ test("draft mode reuses a prepared fragment and sends only article HTML to draft
 test("direct draft mode uploads local body images once, then uploads the cover and creates a draft", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wechat-direct-draft-test-"));
   try {
-    const fixture = await writePublishFixture(dir);
+    const fixture = await writePublishFixture(dir, false, "draft");
     const { calls, deps } = publisherMock();
     await runPublish(
       [
@@ -852,6 +1091,35 @@ test("direct draft mode uploads local body images once, then uploads the cover a
     assert.equal(calls.cover.length, 1);
     assert.equal(calls.drafts.length, 1);
     assert.match(calls.drafts[0].content, /https:\/\/mmbiz\.qpic\.cn\/mock\/body-1\.png/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("draft creation rejects a copy-ready workflow without draft authorization", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-draft-authorization-test-"));
+  try {
+    const fixture = await writePublishFixture(dir);
+    const { calls, deps } = publisherMock();
+    await assert.rejects(
+      () => runPublish(
+        [
+          fixture.article,
+          "--create-draft",
+          "--image-plan",
+          fixture.imagePlan,
+          "--source-article",
+          fixture.source,
+          "--visual-qa",
+          fixture.visualQa,
+          "--cover",
+          fixture.cover,
+        ],
+        deps,
+      ),
+      /delivery_mode=draft/i,
+    );
+    assert.deepEqual(calls, { token: 0, body: [], cover: [], drafts: [], validated: [] });
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -884,7 +1152,7 @@ test("upload manifest reuses unchanged images, uploads only changed images, and 
     assert.equal(calls.body.length, 2);
 
     await writeFile(fixture.article, `${completeArticle("hero.png", "只改了正文文字。")}\n<section style="margin:18px 0;"><img data-wlp-visual-id="evidence-1" src="evidence.png" style="display:block;width:100%;height:auto;" /></section>`, "utf8");
-    args[args.indexOf("--visual-qa") + 1] = await writeVisualQa(dir, fixture.article, "-text-change");
+    args[args.indexOf("--visual-qa") + 1] = await writeVisualQa(dir, fixture.article, fixture.imagePlan, "-text-change");
     await runPublish(args, deps);
     assert.equal(calls.body.length, 2, "text changes must not re-upload body images");
 
@@ -892,6 +1160,7 @@ test("upload manifest reuses unchanged images, uploads only changed images, and 
     const changedPlan = JSON.parse(await readFile(fixture.imagePlan, "utf8"));
     changedPlan.visuals[1].asset_sha256 = `sha256:${createHash("sha256").update(await readFile(fixture.evidence)).digest("hex")}`;
     await writeFile(fixture.imagePlan, JSON.stringify(changedPlan), "utf8");
+    args[args.indexOf("--visual-qa") + 1] = await writeVisualQa(dir, fixture.article, fixture.imagePlan, "-image-change");
     await runPublish(args, deps);
     assert.equal(calls.body.length, 3, "changing one of two images must upload only that image");
 
@@ -975,6 +1244,59 @@ test("preserve mode rejects rewritten source copy before any WeChat request", as
   }
 });
 
+test("coded visual bytes cannot drift from the registered SVG or HTML asset", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-coded-visual-binding-test-"));
+  try {
+    const fixture = await writePublishFixture(dir);
+    const codedName = "process.html";
+    const codedPath = join(dir, codedName);
+    const coded = '<section data-wlp-visual-id="process" style="margin:18px 0;padding:16px;background:#fbf8f3;"><p style="margin:0;">第一步 → 第二步</p></section>';
+    await writeFile(codedPath, coded, "utf8");
+    const plan = JSON.parse(await readFile(fixture.imagePlan, "utf8"));
+    plan.visuals.push({
+      id: "process",
+      order: 2,
+      section: "method",
+      placement: "after method paragraph",
+      role: "explainer",
+      source_type: "coded_visual",
+      semantic_kind: "process",
+      semantic_reason: "shows the two-step process",
+      semantic_signature: ["第一步", "第二步"],
+      status: "ready",
+      asset_path: codedName,
+      asset_sha256: `sha256:${createHash("sha256").update(await readFile(codedPath)).digest("hex")}`,
+      asset_dimensions: { width: 640, height: 240 },
+    });
+    await writeFile(fixture.imagePlan, JSON.stringify(plan), "utf8");
+    await writeFile(
+      fixture.article,
+      `${await readFile(fixture.article, "utf8")}\n${coded.replace("第二步", "已漂移的第三步")}`,
+      "utf8",
+    );
+    const visualQa = await writeVisualQa(dir, fixture.article, fixture.imagePlan, "-coded-drift");
+    const { calls, deps } = publisherMock();
+    await assert.rejects(
+      () => runPublish([
+        fixture.article,
+        "--prepare-only",
+        "--image-plan",
+        fixture.imagePlan,
+        "--source-article",
+        fixture.source,
+        "--visual-qa",
+        visualQa,
+        "--write-uploaded-fragment",
+        join(dir, "prepared.html"),
+      ], deps),
+      /must be embedded exactly once/i,
+    );
+    assert.deepEqual(calls, { token: 0, body: [], cover: [], drafts: [], validated: [] });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("publish rejects plan/body image drift in both directions before any WeChat request", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wechat-plan-body-binding-test-"));
   try {
@@ -982,6 +1304,7 @@ test("publish rejects plan/body image drift in both directions before any WeChat
     const plan = JSON.parse(await readFile(fixture.imagePlan, "utf8"));
     plan.visuals = plan.visuals.slice(0, 1);
     await writeFile(fixture.imagePlan, JSON.stringify(plan), "utf8");
+    const reducedPlanVisualQa = await writeVisualQa(dir, fixture.article, fixture.imagePlan, "-reduced-plan");
     const { calls, deps } = publisherMock();
     await assert.rejects(
       () =>
@@ -994,7 +1317,7 @@ test("publish rejects plan/body image drift in both directions before any WeChat
             "--source-article",
             fixture.source,
             "--visual-qa",
-            fixture.visualQa,
+            reducedPlanVisualQa,
             "--write-uploaded-fragment",
             join(dir, "prepared.html"),
           ],
@@ -1013,15 +1336,18 @@ test("publish rejects plan/body image drift in both directions before any WeChat
       role: "evidence",
       source_type: "evidence_screenshot",
       semantic_reason: "proves a claim",
+      semantic_signature: ["supported claim", "official evidence"],
       source_url: "https://example.com/evidence",
       source_tier: "official",
+      crop_strategy: "focused",
       status: "captured",
       captured_at: "2026-07-14T00:00:00.000Z",
       asset_sha256: `sha256:${createHash("sha256").update(await readFile(fixture.evidence)).digest("hex")}`,
       asset_path: "evidence.png",
+      asset_dimensions: { width: 320, height: 240 },
     });
     await writeFile(fixture.imagePlan, JSON.stringify(plan), "utf8");
-    const updatedVisualQa = await writeVisualQa(dir, fixture.article, "-unused-plan");
+    const updatedVisualQa = await writeVisualQa(dir, fixture.article, fixture.imagePlan, "-unused-plan");
     await assert.rejects(
       () =>
         runPublish(
@@ -1083,8 +1409,9 @@ test("prepare-only with already hosted body images needs no WeChat credentials",
   try {
     const fixture = await writePublishFixture(dir);
     const hostedArticle = join(dir, "hosted.html");
+    const copyReadyPreview = join(dir, "hosted-copy-ready.html");
     await writeFile(hostedArticle, completeArticle("https://mmbiz.qpic.cn/mock/already-hosted.png"), "utf8");
-    const visualQa = await writeVisualQa(dir, hostedArticle, "-hosted");
+    const visualQa = await writeVisualQa(dir, hostedArticle, fixture.imagePlan, "-hosted");
     const { calls, deps, hostedContent } = publisherMock();
     hostedContent.set("https://mmbiz.qpic.cn/mock/already-hosted.png", await readFile(fixture.hero));
     deps.resolveCredentials = async () => ({});
@@ -1100,6 +1427,8 @@ test("prepare-only with already hosted body images needs no WeChat credentials",
         visualQa,
         "--write-uploaded-fragment",
         join(dir, "prepared.html"),
+        "--write-copy-ready",
+        copyReadyPreview,
       ],
       deps,
     );
@@ -1109,6 +1438,7 @@ test("prepare-only with already hosted body images needs no WeChat credentials",
     assert.equal(calls.cover.length, 0);
     assert.equal(calls.drafts.length, 0);
     assert.deepEqual(calls.validated, ["https://mmbiz.qpic.cn/mock/already-hosted.png"]);
+    assert.match(await readFile(copyReadyPreview, "utf8"), /微信防盗链可能让本地浏览器显示占位图/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -1121,7 +1451,7 @@ test("a WeChat-hosted image must still match the planned visual bytes", async ()
     const hostedUrl = "https://mmbiz.qpic.cn/mock/wrong-hosted.png";
     const hostedArticle = join(dir, "hosted-wrong.html");
     await writeFile(hostedArticle, completeArticle(hostedUrl), "utf8");
-    const visualQa = await writeVisualQa(dir, hostedArticle, "-hosted-wrong");
+    const visualQa = await writeVisualQa(dir, hostedArticle, fixture.imagePlan, "-hosted-wrong");
     const { calls, deps, hostedContent } = publisherMock();
     hostedContent.set(hostedUrl, await sharp({ create: { width: 900, height: 383, channels: 3, background: "#111111" } }).png().toBuffer());
     await assert.rejects(
@@ -1219,6 +1549,28 @@ test("complete-package verification enforces H1, subtitle, hero, and lead order"
     assert.equal(preservePass.status, 0, `${preservePass.stdout}${preservePass.stderr}`);
     assert.match(`${preservePass.stdout}${preservePass.stderr}`, /exactly retained source copy/i);
 
+    const sourceWithStructuralSeparator = join(dir, "source-with-structural-separator.md");
+    await writeFile(
+      sourceWithStructuralSeparator,
+      "# 一个完整的测试标题\n\n一句克制的副标题\n\n---\n\n这里是导语，帮读者进入正文。",
+      "utf8",
+    );
+    const separatorOmitted = run(valid, sourceWithStructuralSeparator, "preserve");
+    assert.equal(separatorOmitted.status, 0, `${separatorOmitted.stdout}${separatorOmitted.stderr}`);
+
+    const visibleSeparator = join(dir, "visible-separator.html");
+    await writeFile(
+      visibleSeparator,
+      completeArticle("hero.png").replace(
+        "<section style=\"margin:0 0 18px;\">",
+        "<p style=\"margin:0 0 40px;\">---</p><section style=\"margin:0 0 18px;\">",
+      ),
+      "utf8",
+    );
+    const visibleSeparatorResult = run(visibleSeparator);
+    assert.notEqual(visibleSeparatorResult.status, 0);
+    assert.match(`${visibleSeparatorResult.stdout}${visibleSeparatorResult.stderr}`, /raw Markdown thematic separator/i);
+
     const rewrittenCopy = join(dir, "rewritten-copy.html");
     await writeFile(rewrittenCopy, completeArticle("hero.png", "这是经过改写的导语。"), "utf8");
     const preserveFail = run(rewrittenCopy, preservedSource, "preserve");
@@ -1251,7 +1603,40 @@ test("complete-package verification enforces H1, subtitle, hero, and lead order"
   }
 });
 
-test("only verified copy-ready previews expose copy controls", async () => {
+test("article verification rejects unsupported interactive tags and unreadable wide SVG text", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-html-compatibility-test-"));
+  try {
+    const interactive = join(dir, "interactive.html");
+    await writeFile(
+      interactive,
+      '<section style="margin:0;"><p style="margin:0;">正文</p><video src="https://example.com/a.mp4" style="width:100%;"></video><button style="margin:0;">按钮</button></section>',
+      "utf8",
+    );
+    const interactiveResult = spawnSync(process.execPath, [resolve(scriptDir, "verify-article.mjs"), interactive], {
+      cwd: scriptDir,
+      encoding: "utf8",
+    });
+    assert.notEqual(interactiveResult.status, 0);
+    assert.match(`${interactiveResult.stdout}${interactiveResult.stderr}`, /unsupported WeChat article tags:.*video.*button/i);
+
+    const tinySvg = join(dir, "tiny-svg.html");
+    await writeFile(
+      tinySvg,
+      '<section style="margin:0;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 637 260" style="display:block;width:100%;height:auto;"><text x="20" y="30" font-size="13">手机上看不清</text></svg></section>',
+      "utf8",
+    );
+    const svgResult = spawnSync(process.execPath, [resolve(scriptDir, "verify-article.mjs"), tinySvg], {
+      cwd: scriptDir,
+      encoding: "utf8",
+    });
+    assert.notEqual(svgResult.status, 0);
+    assert.match(`${svgResult.stdout}${svgResult.stderr}`, /inline SVG text is too small/i);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("standalone preview stays local-only and cannot claim formal copy-ready status", async () => {
   const dir = await mkdtemp(join(tmpdir(), "wechat-preview-state-test-"));
   try {
     const local = join(dir, "local.html");
@@ -1271,20 +1656,19 @@ test("only verified copy-ready previews expose copy controls", async () => {
     }
 
     const localPreview = join(dir, "local-preview.html");
-    const copyPreview = join(dir, "copy-preview.html");
     assert.equal(
       spawnSync(process.execPath, [resolve(scriptDir, "make-preview.mjs"), local, localPreview], { cwd: scriptDir }).status,
       0,
     );
-    assert.equal(
-      spawnSync(process.execPath, [resolve(scriptDir, "make-preview.mjs"), "--copy-ready", hosted, copyPreview], {
-        cwd: scriptDir,
-      }).status,
-      0,
-    );
     assert.doesNotMatch(await readFile(localPreview, "utf8"), /<button class="btn-copy"/);
     assert.match(await readFile(localPreview, "utf8"), /本地预览/);
-    assert.match(await readFile(copyPreview, "utf8"), /<button class="btn-copy"/);
+    const forbidden = spawnSync(
+      process.execPath,
+      [resolve(scriptDir, "make-preview.mjs"), "--copy-ready", hosted, join(dir, "forbidden.html")],
+      { cwd: scriptDir, encoding: "utf8" },
+    );
+    assert.notEqual(forbidden.status, 0);
+    assert.match(`${forbidden.stdout}${forbidden.stderr}`, /publish\.ts/i);
 
     const scripted = join(dir, "scripted.html");
     const srcset = join(dir, "srcset.html");
@@ -1298,7 +1682,7 @@ test("only verified copy-ready previews expose copy controls", async () => {
       "utf8",
     );
     for (const unsafe of [scripted, srcset]) {
-      const result = spawnSync(process.execPath, [resolve(scriptDir, "make-preview.mjs"), "--copy-ready", unsafe, join(dir, `${unsafe === scripted ? "scripted" : "srcset"}-preview.html`)], {
+      const result = spawnSync(process.execPath, [resolve(scriptDir, "make-preview.mjs"), unsafe, join(dir, `${unsafe === scripted ? "scripted" : "srcset"}-preview.html`)], {
         cwd: scriptDir,
         encoding: "utf8",
       });
@@ -1323,6 +1707,24 @@ test("rewrite delivery treats copy-density and AI-smell warnings as blocking", a
   }
 });
 
+test("component heading weights do not trigger the semantic emphasis gate", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-copy-component-weight-test-"));
+  try {
+    const article = join(dir, "article.html");
+    const headings = Array.from({ length: 20 }, (_, index) =>
+      `<h2 style="margin:0;font-size:18px;font-weight:800;">章节 ${index + 1}</h2>`,
+    ).join("\n");
+    await writeFile(article, `<section style="margin:0;">${headings}<p style="margin:0;">正文保持普通字重。</p></section>`, "utf8");
+    const strict = spawnSync(process.execPath, [resolve(scriptDir, "verify-copy.mjs"), "--strict", article], {
+      cwd: scriptDir,
+      encoding: "utf8",
+    });
+    assert.equal(strict.status, 0, `${strict.stdout}${strict.stderr}`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("generated hero prompt requires the exact title inside the composition", () => {
   const prompt = coverPrompt("真实标题进入安静构图区", "信任裂缝的编辑隐喻");
   assert.match(prompt, /真实标题进入安静构图区/);
@@ -1335,4 +1737,84 @@ test("generated hero prompt requires the exact title inside the composition", ()
 test("default closing component does not inject a generic heading", async () => {
   const components = await readFile(resolve(skillDir, "references", "components.md"), "utf8");
   assert.doesNotMatch(components, />\s*(写在最后|总结|结语)\s*</);
+});
+
+test("Ollama live-run regression fixture is blocked for all six recorded layout failures", async () => {
+  const fixtureDir = resolve(scriptDir, "tests", "fixtures", "ollama-live-regression");
+  const report = await inspectArticleLayout(
+    await readFile(join(fixtureDir, "problematic-fragment.html"), "utf8"),
+    join(fixtureDir, "image-plan.json"),
+  );
+  const codes = new Set(report.issues.map((issue) => issue.code));
+  for (const expected of [
+    "raw_markdown_separator",
+    "late_first_section_anchor",
+    "adjacent_heavy_visual_blocks",
+    "consecutive_tall_screenshots",
+    "semantic_duplicate_visuals",
+  ]) {
+    assert.equal(codes.has(expected as never), true, expected);
+  }
+  assert.equal(report.issues.filter((issue) => issue.code === "semantic_duplicate_visuals").length, 2);
+  const evidenceManifest = JSON.parse(await readFile(join(fixtureDir, "evidence-manifest.json"), "utf8"));
+  assert.equal(evidenceManifest.screenshots.length, 5);
+  assert.equal(new Set(evidenceManifest.screenshots.map((item: { issue: string }) => item.issue)).size, 5);
+});
+
+test("visual QA rejects repeated full-page screenshot tiling", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-repeated-fullpage-test-"));
+  try {
+    const tile = await sharp({ create: { width: 390, height: 500, channels: 3, background: "#ffffff" } })
+      .composite([{ input: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="390" height="500"><rect x="24" y="30" width="342" height="150" fill="#efe6d9"/><rect x="24" y="220" width="280" height="14" fill="#252525"/><rect x="24" y="270" width="330" height="10" fill="#d68163"/><circle cx="320" cy="390" r="48" fill="#8f9b83"/></svg>') }])
+      .png()
+      .toBuffer();
+    const repeated = join(dir, "repeated.png");
+    await sharp({ create: { width: 390, height: 2000, channels: 3, background: "#ffffff" } })
+      .composite([0, 1, 2, 3].map((index) => ({ input: tile, top: index * 500, left: 0 })))
+      .png()
+      .toFile(repeated);
+    assert.equal(await detectRepeatedVerticalTiling(repeated), true);
+
+    const stable = join(dir, "stable.png");
+    await sharp(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="390" height="2000"><rect width="390" height="2000" fill="#fff"/><rect x="20" y="40" width="350" height="180" fill="#efe6d9"/><rect x="40" y="410" width="280" height="80" fill="#d68163"/><circle cx="90" cy="790" r="65" fill="#8f9b83"/><rect x="110" y="1120" width="240" height="210" fill="#252525"/><circle cx="300" cy="1660" r="90" fill="#d68163"/></svg>'))
+      .png()
+      .toFile(stable);
+    assert.equal(await detectRepeatedVerticalTiling(stable), false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("draft creation safely falls back from an unreadable WeChat-hosted URL to the registered local master", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-hosted-local-master-fallback-test-"));
+  try {
+    const fixture = await writePublishFixture(dir, false, "draft");
+    const blockedHostedUrl = "https://mmbiz.qpic.cn/mock/reserved-address.png";
+    const hostedArticle = join(dir, "hosted-fallback.html");
+    await writeFile(hostedArticle, completeArticle(blockedHostedUrl), "utf8");
+    const visualQa = await writeVisualQa(dir, hostedArticle, fixture.imagePlan, "-hosted-fallback");
+    const { calls, deps } = publisherMock(new Set([blockedHostedUrl]));
+    const result = await runPublish(
+      [
+        hostedArticle,
+        "--create-draft",
+        "--image-plan",
+        fixture.imagePlan,
+        "--source-article",
+        fixture.source,
+        "--visual-qa",
+        visualQa,
+        "--cover",
+        fixture.cover,
+      ],
+      deps,
+    );
+    assert.equal(result.mode, "draft");
+    assert.equal(calls.body.length, 1, "the approved local master should be re-uploaded exactly once");
+    assert.equal(calls.drafts.length, 1);
+    assert.doesNotMatch(calls.drafts[0].content, /reserved-address/);
+    assert.match(calls.drafts[0].content, /mmbiz\.qpic\.cn\/mock\/body-1\.png/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

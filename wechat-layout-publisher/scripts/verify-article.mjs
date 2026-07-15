@@ -75,6 +75,7 @@ function visibleSourceText(value) {
       .replace(/!\[[^\]]*\]\([^\n)]*\)/g, " ")
       .replace(/\[([^\]]+)\]\([^\n)]*\)/g, "$1")
       .replace(/^\s*```[^\n]*$/gm, "")
+      .replace(/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/gm, "")
       .replace(/^\s*(?:#{1,6}|>|[-+*]|\d+[.)])\s+/gm, "")
       .replace(/^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*$/gm, "")
       .replace(/[*_~`]([^\n]*?)[*_~`]/g, "$1"),
@@ -118,6 +119,10 @@ const checks = [
   { name: "no transform/animation in article body", re: /style\s*=\s*(["'])[\s\S]*?(transform|animation|@media|@keyframes)\s*[:{]/i },
   { name: "no CSS url() or expression()", re: /style\s*=\s*(["'])[\s\S]*?(?:url\s*\(|expression\s*\()/i },
   { name: "no visually hidden content", re: /style\s*=\s*(["'])[\s\S]*?(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\D|$)|font-size\s*:\s*0(?:\D|$))/i },
+  {
+    name: "no visible raw Markdown thematic separator",
+    re: /<(p|div|span)\b[^>]*>\s*(?:<[^>]+>\s*)*(?:-{3,}|\*{3,}|_{3,})\s*(?:<\/[^>]+>\s*)*<\/\1>/i,
+  },
 ];
 
 let failed = 0;
@@ -132,6 +137,38 @@ for (const check of checks) {
   const end = Math.min(body.length, (match.index || 0) + 140);
   console.log(`FAIL ${check.name}`);
   console.log(body.slice(start, end).replace(/\s+/g, " ").trim());
+}
+
+const allowedTags = new Set([
+  "section", "div", "p", "h1", "h2", "h3", "h4", "h5", "h6", "strong", "b", "em", "i", "u", "s", "del",
+  "span", "small", "sub", "sup", "br", "hr", "blockquote", "ul", "ol", "li", "dl", "dt", "dd", "table", "thead",
+  "tbody", "tfoot", "tr", "th", "td", "img", "a", "figure", "figcaption", "pre", "code", "svg", "g", "defs",
+  "lineargradient", "radialgradient", "stop", "rect", "circle", "ellipse", "line", "polyline", "polygon", "path", "text",
+  "tspan", "clippath",
+]);
+const unsupportedTags = [...new Set(
+  [...body.matchAll(/<\/?([a-z][a-z0-9:-]*)\b[^>]*>/gi)]
+    .map((match) => match[1].toLowerCase())
+    .filter((tag) => !allowedTags.has(tag)),
+)];
+if (unsupportedTags.length) {
+  failed++;
+  console.log(`FAIL unsupported WeChat article tags: ${unsupportedTags.join(", ")}.`);
+}
+
+for (const svg of body.matchAll(/<svg\b([^>]*)>([\s\S]*?)<\/svg>/gi)) {
+  const viewBox = svg[1].match(/\bviewBox\s*=\s*["']\s*[-+\d.]+\s+[-+\d.]+\s+([-+\d.]+)\s+([-+\d.]+)\s*["']/i);
+  const viewBoxWidth = viewBox ? Number(viewBox[1]) : 0;
+  if (viewBoxWidth < 600) continue;
+  const tooSmall = [...svg[2].matchAll(/<text\b[^>]*\bfont-size\s*=\s*["']([\d.]+)(?:px)?["'][^>]*>/gi)]
+    .map((match) => Number(match[1]))
+    .filter((size) => Number.isFinite(size) && size < 22);
+  if (tooSmall.length) {
+    failed++;
+    console.log(
+      `FAIL inline SVG text is too small for a ${viewBoxWidth}px viewBox at phone width; minimum 22 SVG units, found ${Math.min(...tooSmall)}.`,
+    );
+  }
 }
 
 if (contentMode === "preserve") {

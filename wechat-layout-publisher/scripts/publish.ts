@@ -8,13 +8,13 @@ import { fileURLToPath } from "node:url";
 import { extractImageSrcs } from "./render.ts";
 import { getAccessToken, uploadBodyImage, uploadCoverMaterial, addDraft } from "./wechat.ts";
 import type { DraftArticle } from "./wechat.ts";
-import { generateCover, coverPrompt } from "./imagegen.ts";
 import { missingCredentialMessage, resolveRuntimeCredentials } from "./credentials.ts";
 import type { RuntimeCredentials } from "./credentials.ts";
 import { detectImageFormat } from "./image-utils.ts";
 import { safeFetchBuffer } from "./safe-fetch.ts";
 import { prepareHeadlineCover } from "./cover-image.ts";
 import { validateVisualQaReceipt } from "./visual-qa.ts";
+import { assertArticleLayout } from "./layout-qa.ts";
 
 interface Args {
   input: string;
@@ -25,8 +25,6 @@ interface Args {
   genCover: boolean;
   sourceUrl?: string;
   noComment: boolean;
-  model?: string;
-  coverPrompt?: string;
   writeUploadedFragment?: string;
   writeCopyReady?: string;
   imagePlan?: string;
@@ -75,8 +73,6 @@ function parseArgs(argv: string[]): Args {
     else if (t === "--digest") a.digest = value(t, i++);
     else if (t === "--cover") a.cover = value(t, i++);
     else if (t === "--source-url") a.sourceUrl = value(t, i++);
-    else if (t === "--model") a.model = value(t, i++);
-    else if (t === "--cover-prompt") a.coverPrompt = value(t, i++);
     else if (t === "--write-uploaded-fragment") a.writeUploadedFragment = value(t, i++);
     else if (t === "--write-copy-ready") a.writeCopyReady = value(t, i++);
     else if (t === "--image-plan") a.imagePlan = value(t, i++);
@@ -90,15 +86,19 @@ function parseArgs(argv: string[]): Args {
   }
   if (!a.input) {
     throw new Error(
-      "Usage: publish.ts <article.html> --image-plan <image-plan.json> --visual-qa <visual-qa.json> --source-article <original.md> [--prepare-only | --create-draft] [--title ..] [--cover <path> | --gen-cover] [--asset-dir <allowed-dir>] [--upload-manifest <path>] [--cover-prompt ..] [--author ..] [--digest ..] [--no-comment] [--allow-evidence-failure] [--write-uploaded-fragment <path>] [--write-copy-ready <path>]",
+      "Usage: publish.ts <article.html> --image-plan <image-plan.json> --visual-qa <visual-qa.json> --source-article <original.md> [--prepare-only | --create-draft] [--title ..] [--cover <reviewed-path>] [--asset-dir <allowed-dir>] [--upload-manifest <path>] [--author ..] [--digest ..] [--no-comment] [--allow-evidence-failure] [--write-uploaded-fragment <path>] [--write-copy-ready <path>]",
     );
   }
   if (!a.imagePlan) throw new Error("--image-plan <image-plan.json> is required.");
   if (!a.visualQa) throw new Error("--visual-qa <visual-qa.json> is required before formal copy preparation or draft creation.");
+  if (a.genCover) {
+    throw new Error(
+      "--gen-cover is disabled for formal delivery because a newly generated cover would bypass visual review. Generate and inspect the cover first, then pass --cover <reviewed-path>.",
+    );
+  }
   if (prepareOnlyExplicit && createDraftExplicit) throw new Error("Use either --prepare-only or --create-draft, not both.");
-  if (a.cover && a.genCover) throw new Error("Use either --cover or --gen-cover, not both.");
   if (a.prepareOnly && (a.cover || a.genCover)) {
-    throw new Error("--prepare-only does not create or upload a cover. Remove --cover/--gen-cover.");
+    throw new Error("--prepare-only does not create or upload a cover. Remove --cover.");
   }
   if (a.prepareOnly && !a.writeUploadedFragment && !a.writeCopyReady) {
     throw new Error("--prepare-only requires --write-uploaded-fragment or --write-copy-ready (prefer both).");
@@ -113,12 +113,6 @@ export interface PublisherDeps {
   uploadCoverMaterial(path: string, accessToken: string): Promise<string>;
   addDraft(article: DraftArticle, accessToken: string): Promise<string>;
   validateWechatHostedImage(src: string): Promise<Buffer>;
-  generateCover(
-    prompt: string,
-    apiKey: string,
-    model: string,
-    outPath: string,
-  ): Promise<string>;
   now(): string;
 }
 
@@ -129,6 +123,35 @@ export interface PublishResult {
   uploadedFragmentPath?: string;
   copyReadyPath?: string;
   uploadManifestPath: string;
+}
+
+interface WorkflowPlan {
+  content_mode?: unknown;
+  delivery_mode?: unknown;
+  draft_authorization?: unknown;
+  body_image_upload_authorization?: unknown;
+}
+
+function assertDeliveryContract(args: Args, plan: WorkflowPlan): void {
+  if (args.prepareOnly && plan.delivery_mode !== "copy_ready") {
+    throw new Error("Formal copy preparation requires image-plan.json delivery_mode=copy_ready.");
+  }
+  if (args.prepareOnly && plan.body_image_upload_authorization !== "copy_ready_request") {
+    throw new Error(
+      "Formal copy preparation requires explicit body-image upload authorization recorded as body_image_upload_authorization=copy_ready_request.",
+    );
+  }
+  if (!args.prepareOnly) {
+    if (plan.delivery_mode !== "draft") {
+      throw new Error("--create-draft requires image-plan.json delivery_mode=draft.");
+    }
+    if (!new Set(["direct_request", "post_preview_confirmation"]).has(String(plan.draft_authorization))) {
+      throw new Error("--create-draft requires explicit user authorization recorded in image-plan.json draft_authorization.");
+    }
+    if (!new Set(["draft_request", "post_preview_confirmation"]).has(String(plan.body_image_upload_authorization))) {
+      throw new Error("--create-draft requires explicit body-image upload authorization in image-plan.json.");
+    }
+  }
 }
 
 function loadEnv(scriptDir: string): Record<string, string> {
@@ -319,6 +342,7 @@ interface PlannedVisual {
   title_text?: string;
   status?: string;
   asset_path: string;
+  asset_sha256?: string;
 }
 
 interface ArticleVisualMarker {
@@ -370,6 +394,25 @@ async function plannedVisuals(imagePlanPath: string): Promise<PlannedVisual[]> {
     .sort((left, right) => left.order - right.order);
 }
 
+async function plannedLocalMasterForHostedImage(
+  imagePlanPath: string,
+  html: string,
+  src: string,
+  allowedRoots: string[],
+): Promise<string | undefined> {
+  const marker = articleVisualMarkers(html).find((item) => item.src === src);
+  if (!marker) return undefined;
+  const visual = (await plannedVisuals(imagePlanPath)).find((item) => item.id === marker.id);
+  if (!visual || /^https?:/i.test(visual.asset_path) || visual.asset_path.startsWith("data:image/")) return undefined;
+  const path = assertAllowedLocalFile(resolve(dirname(imagePlanPath), visual.asset_path), allowedRoots);
+  await validateLocalBodyImage(path);
+  const plannedHash = await plannedRasterHash(imagePlanPath, visual);
+  if (!plannedHash || plannedHash !== await sha256File(path)) {
+    throw new Error(`Approved local master for WeChat-hosted visual ${visual.id} does not match the final image plan.`);
+  }
+  return path;
+}
+
 async function plannedRasterHash(imagePlanPath: string, visual: PlannedVisual): Promise<string | undefined> {
   let buffer: Buffer;
   if (visual.asset_path.startsWith("data:image/")) {
@@ -418,6 +461,25 @@ async function assertArticleImagesMatchPlan(
   }
   for (const [index, visual] of planned.entries()) {
     const marker = markers[index];
+    if (visual.source_type === "coded_visual" && !visual.asset_path.startsWith("data:image/")) {
+      const codedPath = resolve(dirname(imagePlanPath), visual.asset_path);
+      const codedBytes = await readFile(codedPath);
+      const rasterFormat = detectImageFormat(codedBytes);
+      if (!rasterFormat) {
+        const expectedHash = `sha256:${createHash("sha256").update(codedBytes).digest("hex")}`;
+        if (visual.asset_sha256 !== expectedHash) {
+          throw new Error(`Coded visual ${visual.id} does not match asset_sha256 in the final image plan.`);
+        }
+        const exactSnippet = codedBytes.toString("utf8").trim();
+        const occurrences = exactSnippet ? html.split(exactSnippet).length - 1 : 0;
+        if (occurrences !== 1) {
+          throw new Error(
+            `Coded visual ${visual.id} must be embedded exactly once from its registered SVG/HTML asset; found ${occurrences}.`,
+          );
+        }
+        continue;
+      }
+    }
     const plannedHash = await plannedRasterHash(imagePlanPath, visual);
     if (!plannedHash) {
       if (visual.source_type !== "coded_visual") {
@@ -508,6 +570,9 @@ async function writeTextFile(path: string, content: string): Promise<void> {
 }
 
 function renderCopyReadyPreview(template: string, html: string): string {
+  const hostedImageNotice = extractImageSrcs(html).some(isWechatHosted)
+    ? `<div class="local-note">本预览中的正文图已由微信托管。微信防盗链可能让本地浏览器显示占位图；正式验收以复制后的 HTML 引用和微信公众号编辑器内效果为准。</div>`
+    : "";
   const controls = `<div class="copy-bar">
     <button class="btn-copy" onclick="copyArticle()">复制到公众号正文</button>
     <button class="btn-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">回到顶部</button>
@@ -515,7 +580,7 @@ function renderCopyReadyPreview(template: string, html: string): string {
   return template
     .replace("{{ARTICLE_HTML}}", html.trim())
     .replace("{{PREVIEW_LABEL}}", "公众号复制版")
-    .replace("{{PREVIEW_CONTROLS}}", controls);
+    .replace("{{PREVIEW_CONTROLS}}", `${hostedImageNotice}${controls}`);
 }
 
 async function writeCopyReadyOutputs(html: string, args: Args, scriptDir: string): Promise<void> {
@@ -578,7 +643,6 @@ const defaultDeps: PublisherDeps = {
   uploadCoverMaterial,
   addDraft,
   validateWechatHostedImage,
-  generateCover,
   now: () => new Date().toISOString(),
 };
 
@@ -604,9 +668,10 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
     const imagePlanPath = resolve(process.cwd(), args.imagePlan!);
     if (!existsSync(imagePlanPath)) throw new Error(`Image plan not found: ${imagePlanPath}`);
     let contentMode = "";
+    let workflowPlan: WorkflowPlan = {};
     try {
-      const imagePlan = JSON.parse(readFileSync(imagePlanPath, "utf8")) as { content_mode?: unknown };
-      if (imagePlan.content_mode === "rewrite" || imagePlan.content_mode === "preserve") contentMode = imagePlan.content_mode;
+      workflowPlan = JSON.parse(readFileSync(imagePlanPath, "utf8")) as WorkflowPlan;
+      if (workflowPlan.content_mode === "rewrite" || workflowPlan.content_mode === "preserve") contentMode = workflowPlan.content_mode;
     } catch (error) {
       throw new Error(`Invalid image plan JSON: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -646,8 +711,13 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
       "--check-files",
       ...(args.allowEvidenceFailure ? ["--allow-evidence-failure"] : []),
     ]);
-    await validateVisualQaReceipt(resolve(process.cwd(), args.visualQa!), html);
+    const layoutReport = await assertArticleLayout(html, imagePlanPath);
+    console.log(
+      `▶ Unified layout QA passed: ${layoutReport.visual_blocks} strong visual blocks, ${layoutReport.heavy_visual_blocks} heavy, ${layoutReport.tall_screenshots} tall screenshots.`,
+    );
+    await validateVisualQaReceipt(resolve(process.cwd(), args.visualQa!), html, imagePlanPath);
     console.log("▶ Visual QA receipt matches the current article and includes mobile first-screen/full-page screenshots.");
+    assertDeliveryContract(args, workflowPlan);
 
     let coverPath = "";
     if (!args.prepareOnly) {
@@ -656,8 +726,8 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
         const candidate = resolve(articleDir, fm.cover);
         if (existsSync(candidate)) coverPath = assertAllowedLocalFile(candidate, allowedRoots);
       }
-      if (!coverPath && !args.genCover) {
-        throw new Error("A cover image is required for draft mode. Pass --cover <path> or --gen-cover.");
+      if (!coverPath) {
+        throw new Error("A reviewed cover image is required for draft mode. Pass --cover <reviewed-path>.");
       }
     }
 
@@ -667,6 +737,7 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
     const allSrcs = [...new Set(extractImageSrcs(html))];
     const wechatHostedSrcs = allSrcs.filter(isWechatHosted);
     const srcs = allSrcs.filter((src) => !isWechatHosted(src));
+    const hostedFallbackFiles = new Map<string, string>();
     for (const src of srcs) {
       if (!/^https?:\/\//i.test(src)) {
         bodyImageFiles.set(src, await resolveImageToFile(src, articleDir, tempDir, allowedRoots));
@@ -693,20 +764,6 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
     };
     let wechatCredentials = args.prepareOnly ? undefined : requireWechatCredentials();
 
-    if (!coverPath && args.genCover) {
-      const key = credentials.openaiApiKey;
-      if (!key) throw new Error(missingCredentialMessage(["OPENAI_API_KEY"]) + " It is required only when using --gen-cover.");
-      console.log("▶ Generating and cropping 2.35:1 cover image via OpenAI...");
-      const semanticDirection = args.coverPrompt || fm.cover_prompt || "";
-      coverPath = await deps.generateCover(
-        coverPrompt(title, semanticDirection),
-        key,
-        args.model || credentials.openaiImageModel || "gpt-image-2",
-        join(tempDir, "wechat-headline-cover.jpg"),
-      );
-      console.log(`  ✓ 2.35:1 cover prepared: ${coverPath}`);
-    }
-
     await mapWithConcurrency(
       srcs.filter((src) => /^https?:\/\//i.test(src)),
       4,
@@ -715,21 +772,32 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
       },
     );
     await mapWithConcurrency(wechatHostedSrcs, 4, async (src) => {
-      const buffer = await deps.validateWechatHostedImage(src);
-      const format = detectImageFormat(buffer);
-      if (!format || (format.extension !== "png" && format.extension !== "jpg")) {
-        throw new Error(`Existing WeChat-hosted body image is not a real PNG/JPEG: ${src}`);
+      try {
+        const buffer = await deps.validateWechatHostedImage(src);
+        const format = detectImageFormat(buffer);
+        if (!format || (format.extension !== "png" && format.extension !== "jpg")) {
+          throw new Error(`Existing WeChat-hosted body image is not a real PNG/JPEG: ${src}`);
+        }
+        const path = join(tempDir, `wechat-hosted-${Math.random().toString(36).slice(2)}.${format.extension}`);
+        await writeFile(path, buffer);
+        bodyImageFiles.set(src, path);
+      } catch (error) {
+        const localMaster = await plannedLocalMasterForHostedImage(imagePlanPath, html, src, allowedRoots);
+        if (!localMaster) throw error;
+        bodyImageFiles.set(src, localMaster);
+        hostedFallbackFiles.set(src, localMaster);
+        console.log(
+          `  ! WeChat-hosted image could not be safely fetched; verified the registered local master${args.prepareOnly ? " for content binding" : " and will re-upload it for draft creation"}: ${shortSrcForLog(src)}`,
+        );
       }
-      const path = join(tempDir, `wechat-hosted-${Math.random().toString(36).slice(2)}.${format.extension}`);
-      await writeFile(path, buffer);
-      bodyImageFiles.set(src, path);
     });
 
     await assertArticleImagesMatchPlan(imagePlanPath, html, bodyImageFiles);
 
     console.log(`▶ Title: ${title}`);
     const pendingUploads: Array<{ src: string; file: string; sha256: string; source: string }> = [];
-    for (const src of srcs) {
+    const uploadCandidates = args.prepareOnly ? srcs : [...srcs, ...hostedFallbackFiles.keys()];
+    for (const src of uploadCandidates) {
       const file = bodyImageFiles.get(src)!;
       const sha256 = await sha256File(file);
       const source = manifestSource(src, file, articleDir, sha256);

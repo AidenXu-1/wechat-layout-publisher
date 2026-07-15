@@ -92,4 +92,5 @@ if (failed) {
   process.exit(1);
 }
 
-console.log(`\nCopy-ready verification passed. Images: ${imgs.length}. Warnings: ${warned}.`);
+console.log(`\nImage-source verification passed. Images: ${imgs.length}. Warnings: ${warned}.`);
+console.log("Formal copy-ready status still requires publish.ts to pass the final image plan, visual QA, authorization, and hosted-byte checks.");
