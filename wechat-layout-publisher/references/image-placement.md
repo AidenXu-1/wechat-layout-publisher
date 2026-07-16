@@ -123,98 +123,7 @@ cd scripts && npx tsx img2base64.ts "<image-url-or-local-path>" --max-kb 980
 
 ## 图片计划模板
 
-把计划保存为 `image-plan.json`。最小示例：
-
-```json
-{
-  "interaction_contract_version": 2,
-  "content_choice": "C",
-  "delivery_choice": "A",
-  "choice_source": "upstream_user_confirmation",
-  "runtime": "codex",
-  "destination": "wechat_official_account",
-  "entry_mode": "skill_handoff",
-  "handoff_version": 1,
-  "source_skill": "any-content-skill",
-  "input_stage": "final_copy",
-  "content_mode": "preserve",
-  "delivery_mode": "copy_ready",
-  "draft_authorization": "none",
-  "body_image_upload_authorization": "copy_ready_request",
-  "image_generation_capability": "available",
-  "image_generation_tool": "imagegen",
-  "content_type": "mixed_news_commentary",
-  "classification_confidence": 0.9,
-  "classification_signals": ["recent company response", "article cites an official page"],
-  "first_section_visual_anchor": {
-    "status": "present",
-    "visual_id": "official-evidence"
-  },
-  "supplied_assets": [
-    {
-      "id": "user-video-1",
-      "kind": "video",
-      "relevance": "relevant",
-      "decision": "use",
-      "semantic_reason": "shows the product behavior described in section 2"
-    }
-  ],
-  "visuals": [
-    {
-      "id": "hero",
-      "order": 1,
-      "section": "lead",
-      "placement": "after subtitle",
-      "role": "hero",
-      "source_type": "generated_image",
-      "semantic_reason": "maps the trust conflict into one editorial metaphor",
-      "title_text": "文章的准确 H1",
-      "prompt": "2.35:1 premium editorial metaphor with the exact title 文章的准确 H1 naturally integrated into the quiet area",
-      "provider": "imagegen",
-      "status": "planned"
-    },
-    {
-      "id": "official-evidence",
-      "order": 2,
-      "section": "event background",
-      "placement": "after the official-response paragraph",
-      "role": "evidence",
-      "source_type": "evidence_screenshot",
-      "semantic_reason": "proves the official response and wording",
-      "semantic_signature": ["official response", "response wording"],
-      "source_url": "https://example.com/official",
-      "source_tier": "official",
-      "crop_strategy": "focused",
-      "status": "planned"
-    },
-    {
-      "id": "video-frame",
-      "order": 3,
-      "section": "product behavior",
-      "placement": "after the behavior description",
-      "role": "object",
-      "source_type": "user_asset",
-      "asset_ref": "user-video-1",
-      "frame_timestamp": "00:01:42",
-      "semantic_reason": "shows the exact behavior in the supplied video",
-      "semantic_signature": ["product behavior", "user video frame"],
-      "status": "planned"
-    },
-    {
-      "id": "mechanism",
-      "order": 4,
-      "section": "how it works",
-      "placement": "after the mechanism explanation",
-      "role": "explainer",
-      "source_type": "coded_visual",
-      "semantic_kind": "process",
-      "semantic_reason": "turns the four-step mechanism into a readable flow",
-      "semantic_signature": ["step one", "step two", "step three", "step four"],
-      "status": "planned"
-    }
-  ]
-}
-```
+复制 `assets/image-plan.template.json` 到文章目录并填入本次真实内容。模板同时包含交互、编辑与视觉三层合同；`final_copy` 删除不适用的 `editorial_contract_version` 与 `editorial_plan`，`messy_materials` 删除初稿专属的 `voice_fingerprint` 和 `revision_priorities`。不要把空模板直接当计划提交。
 
 制作素材前和素材就绪后分别验证：
 
@@ -223,9 +132,11 @@ npm run verify-image-plan -- --stage plan --article <source-article> <image-plan
 npm run verify-image-plan -- --stage final --article <source-article> --check-files <image-plan.json>
 ```
 
+旧 `rewrite` 文章包确实早于编辑合同且只需检查时，显式添加 `--allow-legacy-editorial`。它只提供迁移兼容；新建或重做的任务禁止使用。
+
 最终阶段把 `status` 改为 `ready`、`captured` 或 `attempt_failed`，并补充 `asset_path`、`asset_dimensions`、图注、提供方或来源细节。每个非首图视觉填写 2 至 12 个能代表其信息内容的 `semantic_signature`，优先使用附近的标签、数字、步骤名或对象名。已截取证据和每个 `coded_visual` 都要记录与真实文件一致的 `asset_sha256: sha256:<64位哈希>`；证据图另记 ISO 时间 `captured_at`。真实访问失败记录 `failure_code`（`http_error|access_denied|login_required|network_error|removed|policy_blocked`）、`attempted_at` 和具体原因。
 
-`interaction_contract_version` 固定为 `2`。`content_choice`、`delivery_choice` 与 `choice_source` 必须来自开局确认或可追溯的上游用户确认。`runtime` 不能为空。`destination` 固定为 `wechat_official_account`。`entry_mode`、`input_stage`、`content_mode`、`delivery_mode`、`draft_authorization` 和 `body_image_upload_authorization` 必须与用户确认一致。`skill_handoff` 必须记录 `handoff_version: 1` 和任意非空的 `source_skill`；`messy_materials` 和 `draft_copy` 必须对应 `rewrite`，`final_copy` 必须对应 `preserve`。`copy_ready` 必须使用 `draft_authorization: none` 与 `body_image_upload_authorization: copy_ready_request`；`draft` 必须记录相匹配的草稿授权和图片上传授权。使用 `--check-files` 时，首图必须是带 `title_text` 的 `generated_image`，提示词含准确标题与 `2.35:1`，状态为 `ready`，源文件至少 `900×383` 且比例为 `2.35:1`；证据截图至少 `320×120`。
+`interaction_contract_version` 固定为 `2`。`content_choice`、`delivery_choice` 与 `choice_source` 必须来自开局确认或可追溯的上游用户确认。`runtime` 不能为空。`destination` 固定为 `wechat_official_account`。`entry_mode`、`input_stage`、`content_mode`、`delivery_mode`、`draft_authorization` 和 `body_image_upload_authorization` 必须与用户确认一致。`skill_handoff` 必须记录 `handoff_version: 1` 和任意非空的 `source_skill`；新建或重做的 `messy_materials` 和 `draft_copy` 必须对应 `rewrite`，并按 `content-planning.md` 写入 `editorial_contract_version: 1` 与 `editorial_plan`；`draft_copy` 额外写入 `voice_fingerprint` 与 `revision_priorities`。缺少编辑合同版本的旧文章包只作为兼容输入。`final_copy` 必须对应 `preserve`。`copy_ready` 必须使用 `draft_authorization: none` 与 `body_image_upload_authorization: copy_ready_request`；`draft` 必须记录相匹配的草稿授权和图片上传授权。使用 `--check-files` 时，首图必须是带 `title_text` 的 `generated_image`，提示词含准确标题与 `2.35:1`，状态为 `ready`，源文件至少 `900×383` 且比例为 `2.35:1`；证据截图至少 `320×120`。
 
 正文按 `order` 放置每个视觉，并在实际 `<img>` 上写 `data-wlp-visual-id="计划 id"`；内联 SVG/HTML 写在其最外层节点。每个视觉只标记一次。发布预检会按 ID 和顺序逐项对账，并对所有位图下载真实字节后核对内容哈希，包括已经是微信 URL 的图片；SVG/HTML 代码图还会核对计划哈希，并要求确定文件内容原样出现一次，防止计划后被替换。
 

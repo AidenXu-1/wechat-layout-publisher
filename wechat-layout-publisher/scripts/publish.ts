@@ -30,6 +30,7 @@ interface Args {
   imagePlan?: string;
   sourceArticle?: string;
   allowEvidenceFailure: boolean;
+  allowLegacyEditorial: boolean;
   assetDirs: string[];
   prepareOnly: boolean;
   createDraft: boolean;
@@ -43,6 +44,7 @@ function parseArgs(argv: string[]): Args {
     genCover: false,
     noComment: false,
     allowEvidenceFailure: false,
+    allowLegacyEditorial: false,
     assetDirs: [],
     prepareOnly: true,
     createDraft: false,
@@ -68,6 +70,7 @@ function parseArgs(argv: string[]): Args {
     }
     else if (t === "--no-comment") a.noComment = true;
     else if (t === "--allow-evidence-failure") a.allowEvidenceFailure = true;
+    else if (t === "--allow-legacy-editorial") a.allowLegacyEditorial = true;
     else if (t === "--title") a.title = value(t, i++);
     else if (t === "--author") a.author = value(t, i++);
     else if (t === "--digest") a.digest = value(t, i++);
@@ -86,7 +89,7 @@ function parseArgs(argv: string[]): Args {
   }
   if (!a.input) {
     throw new Error(
-      "Usage: publish.ts <article.html> --image-plan <image-plan.json> --visual-qa <visual-qa.json> --source-article <original.md> [--prepare-only | --create-draft] [--title ..] [--cover <reviewed-path>] [--asset-dir <allowed-dir>] [--upload-manifest <path>] [--author ..] [--digest ..] [--no-comment] [--allow-evidence-failure] [--write-uploaded-fragment <path>] [--write-copy-ready <path>]",
+      "Usage: publish.ts <article.html> --image-plan <image-plan.json> --visual-qa <visual-qa.json> --source-article <original.md> [--prepare-only | --create-draft] [--title ..] [--cover <reviewed-path>] [--asset-dir <allowed-dir>] [--upload-manifest <path>] [--author ..] [--digest ..] [--no-comment] [--allow-evidence-failure] [--allow-legacy-editorial] [--write-uploaded-fragment <path>] [--write-copy-ready <path>]",
     );
   }
   if (!a.imagePlan) throw new Error("--image-plan <image-plan.json> is required.");
@@ -600,7 +603,7 @@ async function writeCopyReadyOutputs(html: string, args: Args, scriptDir: string
 
   if (args.writeCopyReady) {
     const out = resolve(process.cwd(), args.writeCopyReady);
-    const template = await readFile(resolve(scriptDir, "..", "references", "copy-preview-template.html"), "utf8");
+    const template = await readFile(resolve(scriptDir, "..", "assets", "copy-preview-template.html"), "utf8");
     await writeTextFile(out, renderCopyReadyPreview(template, html));
     console.log(`▶ Wrote WeChat copy-ready preview: ${out}`);
   }
@@ -710,6 +713,7 @@ export async function runPublish(argv: string[], overrides: Partial<PublisherDep
       sourceArticlePath,
       "--check-files",
       ...(args.allowEvidenceFailure ? ["--allow-evidence-failure"] : []),
+      ...(args.allowLegacyEditorial ? ["--allow-legacy-editorial"] : []),
     ]);
     const layoutReport = await assertArticleLayout(html, imagePlanPath);
     console.log(

@@ -17,11 +17,42 @@
 0. **内容类型**：按 `editorial-writing.md` 分类为新闻/事件跟踪、产品/工具介绍、观点评论、知识解释、经验复盘或叙事。记录置信度和具体文本依据。公共事件加观点属于 `mixed_news_commentary`，不能归为纯观点。
 1. **核心主张**：用一句话说清文章真正想表达什么。
 2. **读者承诺**：读完以后，读者能理解什么。
-3. **章节地图**：`rewrite` 规划 3 至 5 个阅读单元；`preserve` 记录原有顺序和单元边界，不重组正文。
-4. **视觉地图**：只有当图片能降低理解成本、证明主张或建立必要氛围时，才给阅读单元分配视觉锚点。首个 H2 单元有实质信息时，语义锚点应在标题后的前两段内；确实不需要时记录具体理由。
-5. **正文节奏**：短段落、重点提示、图表、截图和图注交替出现。
+3. **编辑规划**：`rewrite` 按 `editorial-writing.md` 确定开场锚点、读者追问、3 至 8 个叙事节点、证据顺序、结尾判断和标题显隐策略；`draft_copy` 另记录声音指纹与修改优先级。
+4. **章节地图**：`rewrite` 根据 `narrative_spine` 建立阅读单元；`preserve` 记录原有顺序和单元边界，不重组正文。
+5. **视觉地图**：只有当图片能降低理解成本、证明主张或建立必要氛围时，才给阅读单元分配视觉锚点。首个 H2 单元有实质信息时，语义锚点应在标题后的前两段内；确实不需要时记录具体理由。
+6. **正文节奏**：短段落、重点提示、图表、截图和图注交替出现。
 
 禁止把整篇文章塞进图片。图片承载证据、结构和情绪入口，细节与判断留在正文。
+
+## 编辑规划合同
+
+新建或重做的 `messy_materials` 与 `draft_copy` 必须把下列版本与对象写入 `image-plan.json`。验证器会按版本硬检查；字段必须引用本次材料或初稿中的具体内容。旧文章包缺少该版本时默认失败，只有显式使用 `--allow-legacy-editorial` 才能检查或交付未改动的旧包；新建或重做任务禁止使用该开关。
+
+```json
+{
+  "editorial_contract_version": 1,
+  "editorial_plan": {
+    "core_claim": "文章最终要成立的判断",
+    "reader_question": "读者一路追问的问题",
+    "opening_anchor": "开头使用的具体人物、场景、异常、结果或痛点",
+    "narrative_spine": ["节点1", "节点2", "节点3"],
+    "evidence_sequence": ["证据及其支持的主张"],
+    "ending_claim": "由前文证据支撑的结尾判断",
+    "structure_mode": "visible_sections | implicit_flow | hybrid",
+    "structure_reason": "为什么这种标题显隐方式适合本篇",
+    "voice_fingerprint": {
+      "person": "第一/第二/第三人称及切换方式",
+      "register": "口语、专业或混合语域",
+      "rhythm": "长短句与停顿特征",
+      "emotional_temperature": "克制、兴奋、愤怒、温和等原稿真实温度",
+      "protected_traits": ["必须保留的表达特征"]
+    },
+    "revision_priorities": ["按顺序执行的修改目标"]
+  }
+}
+```
+
+`voice_fingerprint` 与 `revision_priorities` 只属于 `draft_copy`，`messy_materials` 删除这两个字段。`final_copy + preserve` 删除整个编辑合同。新闻或混合新闻评论的 `evidence_sequence` 至少一项，并与最终视觉计划中的证据截图对应；其他类型没有外部证据时使用空数组，不编造证据槽位。
 
 ## 阅读单元职责
 
@@ -55,40 +86,6 @@
 - 描述结构时优先制作图解，不添加装饰图。
 - 最有力量的一句话只提炼到导语或结尾块一次，禁止每段都加粗。
 
-## 规划模板
-
-内部使用：
-
-```text
-标题：
-副标题：
-输入阶段：messy_materials / draft_copy / final_copy
-内容模式：rewrite / preserve
-交付方式：copy_ready / draft
-核心主张：
-读者承诺：
-语气：
-
-单元 1 / 职责 / 要点 / 视觉需求 / 来源类型
-单元 2 / 职责 / 要点 / 视觉需求 / 来源类型
-单元 3 / 职责 / 要点 / 视觉需求 / 来源类型
-...
-结尾 / 最终判断
-```
-
-每个视觉填写：
-
-```text
-槽位：
-位置：
-角色：
-必要性：
-来源类型：
-提示词/查询/来源：
-图注：
-风险：
-```
-
-最终规划必须保存为 `image-plan.json`，不能只留在隐藏推理中。来源类型严格使用 `image-placement.md` 的四个值：`user_asset`、`evidence_screenshot`、`generated_image`、`coded_visual`。
+最终规划直接写入从 `assets/image-plan.template.json` 复制出的 `image-plan.json`，不能只留在隐藏推理中。来源类型严格使用 `image-placement.md` 的四个值：`user_asset`、`evidence_screenshot`、`generated_image`、`coded_visual`。
 
 版权、截图不可读、生成图质量弱或来源缺失等风险尚未解决时，先修复或向用户说明。

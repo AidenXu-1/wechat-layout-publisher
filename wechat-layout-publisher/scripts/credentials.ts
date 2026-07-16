@@ -4,14 +4,12 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 export const CREDENTIAL_SERVICE = "wechat-layout-publisher";
 
-export const CREDENTIAL_KEYS = ["WECHAT_APP_ID", "WECHAT_APP_SECRET", "OPENAI_API_KEY", "OPENAI_IMAGE_MODEL"] as const;
+export const CREDENTIAL_KEYS = ["WECHAT_APP_ID", "WECHAT_APP_SECRET"] as const;
 export type CredentialKey = (typeof CREDENTIAL_KEYS)[number];
 
 export interface RuntimeCredentials {
   wechatAppId?: string;
   wechatAppSecret?: string;
-  openaiApiKey?: string;
-  openaiImageModel?: string;
 }
 
 export function credentialStoreName(): string {
@@ -193,8 +191,6 @@ export async function resolveRuntimeCredentials(env: Record<string, string | und
   return {
     wechatAppId: await value("WECHAT_APP_ID"),
     wechatAppSecret: await value("WECHAT_APP_SECRET"),
-    openaiApiKey: await value("OPENAI_API_KEY"),
-    openaiImageModel: (await value("OPENAI_IMAGE_MODEL")) || "gpt-image-2",
   };
 }
 

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const skillDir = resolve(scriptDir, "..");
-const templatePath = resolve(skillDir, "references", "copy-preview-template.html");
+const templatePath = resolve(skillDir, "assets", "copy-preview-template.html");
 
 function usage() {
   console.error("Usage: node scripts/make-preview.mjs <article-fragment.html> <output-preview.html>");

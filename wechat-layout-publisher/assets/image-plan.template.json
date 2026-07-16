@@ -1,0 +1,57 @@
+{
+  "interaction_contract_version": 2,
+  "content_choice": "",
+  "delivery_choice": "",
+  "choice_source": "",
+  "runtime": "",
+  "destination": "wechat_official_account",
+  "entry_mode": "",
+  "input_stage": "",
+  "content_mode": "",
+  "delivery_mode": "",
+  "draft_authorization": "",
+  "body_image_upload_authorization": "",
+  "image_generation_capability": "",
+  "content_type": "",
+  "classification_confidence": 0,
+  "classification_signals": [],
+  "editorial_contract_version": 1,
+  "editorial_plan": {
+    "core_claim": "",
+    "reader_question": "",
+    "opening_anchor": "",
+    "narrative_spine": [],
+    "evidence_sequence": [],
+    "ending_claim": "",
+    "structure_mode": "",
+    "structure_reason": "",
+    "voice_fingerprint": {
+      "person": "",
+      "register": "",
+      "rhythm": "",
+      "emotional_temperature": "",
+      "protected_traits": []
+    },
+    "revision_priorities": []
+  },
+  "first_section_visual_anchor": {
+    "status": "",
+    "skip_reason": ""
+  },
+  "supplied_assets": [],
+  "visuals": [
+    {
+      "id": "hero",
+      "order": 1,
+      "section": "lead",
+      "placement": "after subtitle",
+      "role": "hero",
+      "source_type": "generated_image",
+      "semantic_reason": "",
+      "title_text": "",
+      "prompt": "",
+      "provider": "",
+      "status": "planned"
+    }
+  ]
+}

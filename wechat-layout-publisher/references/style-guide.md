@@ -5,7 +5,7 @@
 ## 目录
 
 - 视觉基因、字体、布局与密度
-- 核心内联 HTML 片段
+- 纵向间距与组件选择
 - 最终风格规则
 
 ## 视觉基因
@@ -63,99 +63,7 @@
 - 禁止用空 `section`、空 `p`、`&nbsp;`、固定高度或重复 `<br>` 制造呼吸感。
 - 移动端出现超过一个正文行高的无内容空白时，先检查叠加边距和空节点，不能把异常留白解释成风格。
 
-## 核心片段
-
-### 正文外壳
-
-```html
-<section style="margin:0 auto;padding:22px 20px 34px;max-width:677px;background:#fff;color:#333333;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;font-size:15px;line-height:1.85;letter-spacing:0;">
-  <!-- 正文 -->
-</section>
-```
-
-### 标题区
-
-```html
-<h1 style="margin:0 0 16px;text-align:center;font-size:22px;line-height:1.35;color:#252525;font-weight:800;">兆基日报｜文章标题</h1>
-<p style="margin:0 0 24px;text-align:center;font-size:13px;line-height:1.7;color:#8b8b8b;">一句克制的副标题</p>
-```
-
-### 图片与图注
-
-```html
-<section style="margin:0 0 24px;">
-  <img data-wlp-visual-id="hero" src="images/hero.jpg" style="display:block;width:100%;border-radius:4px;" />
-  <p style="margin:10px 0 0;text-align:center;font-size:12px;line-height:1.6;color:#999999;">图注：来源或说明</p>
-</section>
-```
-
-### 导语
-
-```html
-<section style="margin:22px 0 24px;padding:0 0 0 14px;border-left:3px solid #d68163;">
-  <p style="margin:0;font-size:15px;line-height:1.85;color:#333333;font-weight:600;">导语段落。重点可以用 <strong style="font-weight:800;color:#252525;">加粗</strong>。</p>
-</section>
-```
-
-### 章节标题
-
-```html
-<section style="margin:28px 0 12px;">
-  <h2 style="margin:0;font-size:18px;line-height:1.45;color:#252525;font-weight:800;">一 · 小标题</h2>
-  <div style="margin:10px 0 0;width:36px;height:3px;background:#d68163;border-radius:2px;"></div>
-</section>
-```
-
-### 暖色信息图面板
-
-```html
-<section style="margin:18px 0 24px;padding:22px 20px;background:#fbf8f3;border-radius:4px;">
-  <p style="margin:0 0 14px;font-size:17px;line-height:1.45;color:#252525;font-weight:800;">一图速览：关键数字</p>
-  <div style="width:54px;height:3px;background:#d68163;border-radius:2px;margin:0 0 18px;"></div>
-  <!-- 卡片、SVG、表格或图片 -->
-</section>
-```
-
-### 数字卡片
-
-```html
-<table style="width:100%;table-layout:fixed;border-collapse:separate;border-spacing:6px 0;">
-  <tbody><tr>
-    <td style="padding:12px 8px;vertical-align:top;background:#ffffff;border:1px solid #e7dfd3;border-radius:3px;">
-      <p style="margin:0 0 6px;font-size:18px;line-height:1.3;color:#d68163;font-weight:800;">80.3%</p>
-      <p style="margin:0;font-size:12px;line-height:1.55;color:#777777;word-break:break-word;">指标说明</p>
-    </td>
-    <td style="padding:12px 8px;vertical-align:top;background:#ffffff;border:1px solid #e7dfd3;border-radius:3px;">
-      <p style="margin:0 0 6px;font-size:18px;line-height:1.3;color:#8f9b83;font-weight:800;">12 次</p>
-      <p style="margin:0;font-size:12px;line-height:1.55;color:#777777;word-break:break-word;">交接次数</p>
-    </td>
-    <td style="padding:12px 8px;vertical-align:top;background:#ffffff;border:1px solid #e7dfd3;border-radius:3px;">
-      <p style="margin:0 0 6px;font-size:18px;line-height:1.3;color:#252525;font-weight:800;">3 天</p>
-      <p style="margin:0;font-size:12px;line-height:1.55;color:#777777;word-break:break-word;">完成周期</p>
-    </td>
-  </tr></tbody>
-</table>
-```
-
-### 时间线信息图
-
-时间线优先使用内联 SVG，文字在手机上也要足够大。
-
-```html
-<section style="margin:18px 0 24px;padding:22px 20px;background:#fbf8f3;border-radius:4px;">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 637 280" style="display:block;width:100%;height:auto;">
-    <rect width="637" height="280" fill="#fbf8f3"/>
-    <text x="24" y="40" font-size="30" font-weight="800" fill="#252525" font-family="system-ui">时间线标题</text>
-    <line x1="60" y1="120" x2="580" y2="120" stroke="#252525" stroke-width="3"/>
-    <circle cx="120" cy="120" r="5" fill="#252525"/>
-    <text x="120" y="92" text-anchor="middle" font-size="24" font-weight="700" fill="#252525" font-family="system-ui">阶段一</text>
-    <circle cx="300" cy="120" r="5" fill="#252525"/>
-    <text x="300" y="92" text-anchor="middle" font-size="24" font-weight="700" fill="#252525" font-family="system-ui">阶段二</text>
-    <circle cx="520" cy="120" r="6" fill="#d68163"/>
-    <text x="520" y="92" text-anchor="middle" font-size="24" font-weight="800" fill="#d68163" font-family="system-ui">当前</text>
-  </svg>
-</section>
-```
+具体内联 HTML 只从 `components.md` 选择，避免视觉规则和组件代码维护两份。
 
 ## 风格规则
 

@@ -10,23 +10,12 @@
 
 ## 目录
 
-- 设计变量与正文外壳
+- 正文外壳
 - 标题、首图、导语、章节标题和段落
 - 信息图、数字、截图、引用和步骤块
 - 结尾块、内联 SVG 和组件纪律
 
-## 设计变量
-
-- 标题文字：`#252525`
-- 正文：`#333333`
-- 次要文字：`#8b8b8b`
-- 图注：`#999999`
-- 砖红强调：`#d68163`
-- 鼠尾草绿强调：`#8f9b83`
-- 暖色面板：`#fbf8f3`
-- 纸张面板：`#f8f5ef`
-- 边线：`#e7dfd3`
-- 字体栈：`-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif`
+颜色、字体和间距以 `style-guide.md` 为唯一来源，本文件只保留可直接使用的组件。
 
 ## 正文外壳
 
@@ -39,7 +28,7 @@
 ## 标题区
 
 ```html
-<h1 style="margin:0 0 14px;text-align:center;font-size:22px;line-height:1.35;color:#252525;font-weight:800;">兆基日报｜文章标题</h1>
+<h1 style="margin:0 0 14px;text-align:center;font-size:22px;line-height:1.35;color:#252525;font-weight:800;">文章标题</h1>
 <p style="margin:0 0 24px;text-align:center;font-size:13px;line-height:1.7;color:#8b8b8b;">一句克制的副标题</p>
 ```
 

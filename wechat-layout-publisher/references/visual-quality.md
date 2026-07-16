@@ -61,8 +61,6 @@
 - 除首图的准确标题外，无文字、无字母、无标志、无水印、无伪界面、无畸形 UI。
 - 避免科幻霓虹、紫蓝渐变、装饰光球、杂乱和廉价终端窗口示意图。
 
-可选 OpenAI API 备用流程默认使用当前图片模型 `gpt-image-2`。模型需可配置，尺寸只能使用该模型系列支持的规格。当前 Agent 已有原生图片工具时，优先使用原生工具，不要求 API key。
-
 通用提示词结构：
 
 ```text
@@ -114,16 +112,7 @@ AI 基础设施文章的高级编辑静物图：[物体或隐喻]。
 7. 默认记录 `crop_strategy: focused`。高宽比超过 `1.55` 的长截图只有在关键上下文无法拆分或裁切时才保留，改记 `full_context` 与具体 `full_context_reason`。
 8. 同一阅读区间不得连续出现两张长截图。必须拆成聚焦裁切、拉开到不同章节，或在中间加入完成解释与判断的正文。
 
-推荐的微信安全截图块：
-
-```html
-<section style="margin:18px 0 24px;padding:16px;background:#fbf8f3;border:1px solid #e7dfd3;border-radius:4px;">
-  <img data-wlp-visual-id="official-evidence" src="images/source-shot.jpg" style="display:block;width:100%;height:auto;border-radius:3px;" />
-</section>
-<p style="margin:-12px 0 24px;text-align:center;font-size:12px;line-height:1.6;color:#999999;">图注：页面截图｜来源：...</p>
-```
-
-并排截图使用同一种承托方式。边框不同会让比较显得随意。
+截图组件统一使用 `components.md` 的“截图舞台”，不要在视觉规则里另造一套边框和间距。
 
 ## 图上文字安全
 

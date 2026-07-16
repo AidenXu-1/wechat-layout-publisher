@@ -4,6 +4,8 @@
 
 `image-plan.json` 必须记录开局确认的入口、内容阶段、内容模式、交付方式、草稿授权和正文图片上传授权。`--prepare-only` 只接受 `delivery_mode: copy_ready` 与 `body_image_upload_authorization: copy_ready_request`；`--create-draft` 只接受 `delivery_mode: draft`、有效草稿授权，以及 `draft_request` 或 `post_preview_confirmation` 的正文图片上传授权。`preserve` 会在任何微信请求前核对源文字符与顺序，检测到删改或调序立即停止；`rewrite` 允许改写，但仍使用源文章做内容分类、证据和事实边界检查。
 
+缺少 `editorial_contract_version` 的旧 `rewrite` 包默认停止。只有文章包保持未改动且确实需要兼容交付时，才显式传入 `--allow-legacy-editorial`；新建、重做或继续修订的任务必须迁移编辑合同。
+
 ## 目录
 
 - 前置条件与首次设置
@@ -99,8 +101,6 @@ npm run import-credentials
 ```bash
 WECHAT_APP_ID=
 WECHAT_APP_SECRET=
-OPENAI_API_KEY=
-OPENAI_IMAGE_MODEL=gpt-image-2
 ```
 
 禁止分发 `.env`，也禁止向用户回显 AppSecret。用户把密钥粘贴到聊天中时，建议测试后轮换。
@@ -188,6 +188,7 @@ npx tsx publish.ts <article.html> --create-draft --image-plan <image-plan.json> 
 --asset-dir "../shared-materials"
 --upload-manifest "../output/upload-manifest.json"
 --allow-evidence-failure
+--allow-legacy-editorial
 --write-uploaded-fragment "../output/article-fragment-wechat.html"
 --write-copy-ready "../output/preview-wechat-copy.html"
 ```
@@ -206,7 +207,7 @@ npx tsx publish.ts <article.html> --create-draft --image-plan <image-plan.json> 
 
 若微信托管图因 DNS、保留地址解析、防盗链或临时网络条件无法由受保护下载器回拉，禁止关闭 SSRF、放宽私网规则或盲信原 URL。只有同时满足以下条件才可回退：最终计划中存在同一 `data-wlp-visual-id` 的本地母版；母版位于文章目录或显式 `--asset-dir`；文件为真实 PNG/JPEG；字节哈希与最终计划一致。正式准备可以用它完成内容绑定；创建草稿时重新上传该母版并替换正文 URL。
 
-`publish.ts` 的正式可复制版与草稿箱入口只接受已经完成组件排版和视觉审查的 HTML；Markdown 自动渲染只用于内部工作预览，不得绕过组件层直接进入正式交付。`--image-plan`、`--visual-qa` 与 `--source-article` 均为必填，语义分类器始终读取原始文章而非排版输出。本地图片只能位于文章目录，或显式 `--asset-dir` 指定的目录，防止文章 HTML 上传无关文件。
+`publish.ts` 的正式可复制版与草稿箱入口只接受已经完成组件排版和视觉审查的 HTML；Markdown 源文必须先进入组件化 HTML 制作，不能直接交给发布入口。`--image-plan`、`--visual-qa` 与 `--source-article` 均为必填，语义分类器始终读取原始文章而非排版输出。本地图片只能位于文章目录，或显式 `--asset-dir` 指定的目录，防止文章 HTML 上传无关文件。
 
 封面应在正式发布命令前生成、裁为准确的 `900 x 383`，并完成标题准确、文字融合、无额外文字、缩略图可读和整体风格一致的人工检查。检查通过后才把该确定文件传给 `--cover`。`publish.ts --gen-cover` 会直接拒绝，防止新图片绕过视觉审查。
 

@@ -10,7 +10,6 @@ import sharp from "sharp";
 import { prepareHeadlineCover, HEADLINE_COVER_HEIGHT, HEADLINE_COVER_WIDTH } from "../cover-image.ts";
 import { detectImageFormat } from "../image-utils.ts";
 import { assertSafeRemoteUrl, isBlockedIp } from "../safe-fetch.ts";
-import { coverPrompt, landscapeSize } from "../imagegen.ts";
 import { runPublish } from "../publish.ts";
 import type { PublisherDeps } from "../publish.ts";
 import { articleSha256, detectRepeatedVerticalTiling, extractArticleFragment } from "../visual-qa.ts";
@@ -27,6 +26,36 @@ function completeArticle(imageSrc: string, body = "这里是导语，帮读者�
   <section style="margin:0 0 20px;"><img data-wlp-visual-id="hero" src="${imageSrc}" style="display:block;width:100%;height:auto;" /></section>
   <section style="margin:0 0 18px;"><p style="margin:0;font-size:15px;line-height:1.8;">${body}</p></section>
 </section>`;
+}
+
+function rewriteEditorialPlan(includeDraftVoice = true) {
+  return {
+    core_claim: "A reliable workflow needs an explicit narrative and evidence order.",
+    reader_question: "How does the workflow move from a concrete problem to a trustworthy conclusion?",
+    opening_anchor: "A real project stalls after an apparently successful first result.",
+    narrative_spine: [
+      "show the concrete failure",
+      "present the first piece of evidence",
+      "explain the mechanism in plain language",
+      "close with the supported workflow decision",
+    ],
+    evidence_sequence: ["the test result supports the failure claim"],
+    ending_claim: "The improved workflow is useful because every conclusion remains auditable.",
+    structure_mode: "hybrid",
+    structure_reason: "The opening needs a short story before the reusable steps become visible sections.",
+    ...(includeDraftVoice
+      ? {
+          voice_fingerprint: {
+            person: "first person with direct address only at practical decisions",
+            register: "plain spoken technical language",
+            rhythm: "mostly short paragraphs with occasional longer mechanism explanations",
+            emotional_temperature: "calm frustration turning into practical confidence",
+            protected_traits: ["direct judgments tied to lived project evidence"],
+          },
+          revision_priorities: ["repair the evidence order", "preserve the author's direct practical voice"],
+        }
+      : {}),
+  };
 }
 
 interface MockCalls {
@@ -101,14 +130,6 @@ test("private and reserved network targets are blocked", async () => {
   assert.equal(isBlockedIp("2606:4700:4700::1111"), false);
 });
 
-test("OpenAI image model sizes stay inside documented enums", () => {
-  assert.equal(landscapeSize("gpt-image-2"), "1536x1024");
-  assert.equal(landscapeSize("gpt-image-1.5"), "1536x1024");
-  assert.equal(landscapeSize("dall-e-3"), "1792x1024");
-  assert.equal(landscapeSize("dall-e-2"), "1024x1024");
-  assert.throws(() => landscapeSize("unknown-image-model"), /Unsupported/);
-});
-
 async function writeValidPlan(
   dir: string,
   assetName: string,
@@ -176,6 +197,9 @@ async function writeValidPlan(
       content_type: "opinion",
       classification_confidence: 0.9,
       classification_signals: ["non-news test article"],
+      ...(contentMode === "rewrite"
+        ? { editorial_contract_version: 1, editorial_plan: rewriteEditorialPlan() }
+        : {}),
       first_section_visual_anchor: {
         status: "not_applicable",
         skip_reason: "测试短文没有二级正文标题，因此无需首节视觉锚点",
@@ -227,6 +251,8 @@ test("image plans require content mode, runtime, data provenance, and enforce fi
       content_type: "knowledge",
       classification_confidence: 0.9,
       classification_signals: ["data-backed explanation"],
+      editorial_contract_version: 1,
+      editorial_plan: rewriteEditorialPlan(),
       first_section_visual_anchor: {
         status: "not_applicable",
         skip_reason: "测试短文没有二级正文标题，因此无需首节视觉锚点",
@@ -342,6 +368,75 @@ test("image plans require content mode, runtime, data provenance, and enforce fi
     result = run();
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
     assert.match(`${result.stdout}${result.stderr}`, /explicit density exceptions/i);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("rewrite plans require an actionable narrative contract and preserve draft voice", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "wechat-editorial-plan-test-"));
+  try {
+    await sharp({ create: { width: 900, height: 383, channels: 3, background: "#efe6d9" } }).png().toFile(join(dir, "hero.png"));
+    const planPath = await writeValidPlan(dir, "hero.png");
+    const plan = JSON.parse(await readFile(planPath, "utf8"));
+    const run = (extraArgs: string[] = []) => spawnSync(process.execPath, [
+      resolve(scriptDir, "validate-image-plan.mjs"),
+      "--stage",
+      "final",
+      ...extraArgs,
+      planPath,
+    ], { cwd: scriptDir, encoding: "utf8" });
+
+    delete plan.editorial_plan;
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    let result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /editorial_plan is required for rewrite content/i);
+
+    plan.editorial_plan = rewriteEditorialPlan(false);
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /voice_fingerprint is required for draft_copy/i);
+    assert.match(`${result.stdout}${result.stderr}`, /revision_priorities/i);
+
+    plan.editorial_plan = rewriteEditorialPlan(true);
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+
+    delete plan.editorial_contract_version;
+    delete plan.editorial_plan;
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /--allow-legacy-editorial/i);
+
+    result = run(["--allow-legacy-editorial"]);
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+    assert.match(`${result.stdout}${result.stderr}`, /Legacy rewrite plan has no editorial_contract_version/i);
+
+    plan.content_choice = "A";
+    plan.input_stage = "messy_materials";
+    plan.editorial_contract_version = 1;
+    plan.editorial_plan = rewriteEditorialPlan(false);
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+
+    plan.content_choice = "C";
+    plan.input_stage = "final_copy";
+    plan.content_mode = "preserve";
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.notEqual(result.status, 0);
+    assert.match(`${result.stdout}${result.stderr}`, /Preserve plans must omit editorial_contract_version/i);
+
+    delete plan.editorial_contract_version;
+    delete plan.editorial_plan;
+    await writeFile(planPath, JSON.stringify(plan), "utf8");
+    result = run();
+    assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -1723,15 +1818,6 @@ test("component heading weights do not trigger the semantic emphasis gate", asyn
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
-});
-
-test("generated hero prompt requires the exact title inside the composition", () => {
-  const prompt = coverPrompt("真实标题进入安静构图区", "信任裂缝的编辑隐喻");
-  assert.match(prompt, /真实标题进入安静构图区/);
-  assert.match(prompt, /exact title once/i);
-  assert.match(prompt, /2\.35:1/);
-  assert.match(prompt, /white sticker|black mask/i);
-  assert.doesNotMatch(prompt, /No text, letters/i);
 });
 
 test("default closing component does not inject a generic heading", async () => {

@@ -133,8 +133,7 @@ async function importCredentials(): Promise<void> {
   if (missing.length) {
     throw new Error(`Missing ${missing.join(" / ")} in environment variables or local .env. Nothing was imported.`);
   }
-  const keys: CredentialKey[] = ["WECHAT_APP_ID", "WECHAT_APP_SECRET", "OPENAI_API_KEY", "OPENAI_IMAGE_MODEL"];
-  for (const key of keys) {
+  for (const key of CREDENTIAL_KEYS) {
     if (env[key]) await writeStoredCredential(key, env[key] || "");
   }
   console.log(`Imported available credentials into ${credentialStoreName()} using the standard service/accounts.`);
@@ -156,14 +155,11 @@ async function setup(): Promise<void> {
   const appId = (await rl.question("WECHAT_APP_ID: ")).trim();
   rl.close();
   const appSecret = await promptSecret("WECHAT_APP_SECRET: ");
-  const openaiKey = await promptSecret("OPENAI_API_KEY (optional, press Enter to skip): ");
 
   const pairs: [CredentialKey, string][] = [
     ["WECHAT_APP_ID", appId],
     ["WECHAT_APP_SECRET", appSecret],
-    ["OPENAI_IMAGE_MODEL", "gpt-image-2"],
   ];
-  if (openaiKey) pairs.push(["OPENAI_API_KEY", openaiKey]);
 
   for (const [key, value] of pairs) await writeStoredCredential(key, value);
   console.log(`Saved credentials to ${credentialStoreName()}.`);

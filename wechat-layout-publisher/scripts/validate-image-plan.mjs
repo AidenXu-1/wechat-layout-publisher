@@ -7,6 +7,7 @@ import sharp from "sharp";
 const args = process.argv.slice(2);
 let stage = "final";
 let allowEvidenceFailure = false;
+let allowLegacyEditorial = false;
 let checkFiles = false;
 let articleFile = "";
 let file = "";
@@ -15,6 +16,7 @@ for (let index = 0; index < args.length; index++) {
   if (arg === "--stage") stage = args[++index] || "";
   else if (arg === "--article") articleFile = args[++index] || "";
   else if (arg === "--allow-evidence-failure") allowEvidenceFailure = true;
+  else if (arg === "--allow-legacy-editorial") allowLegacyEditorial = true;
   else if (arg === "--check-files") checkFiles = true;
   else if (arg.startsWith("--")) {
     console.error(`Unknown option: ${arg}`);
@@ -27,7 +29,7 @@ for (let index = 0; index < args.length; index++) {
 }
 
 if (!file || !["plan", "final"].includes(stage)) {
-  console.error("Usage: node validate-image-plan.mjs [--stage plan|final] [--article <article>] [--check-files] [--allow-evidence-failure] <image-plan.json>");
+  console.error("Usage: node validate-image-plan.mjs [--stage plan|final] [--article <article>] [--check-files] [--allow-evidence-failure] [--allow-legacy-editorial] <image-plan.json>");
   process.exit(2);
 }
 
@@ -50,11 +52,12 @@ const draftAuthorizations = new Set(["none", "direct_request", "post_preview_con
 const bodyImageUploadAuthorizations = new Set(["copy_ready_request", "draft_request", "post_preview_confirmation"]);
 const choiceSources = new Set(["direct_user", "upstream_user_confirmation"]);
 const sourceTypes = new Set(["user_asset", "evidence_screenshot", "generated_image", "coded_visual"]);
-const roles = new Set(["hero", "evidence", "explainer", "data", "object", "divider"]);
+const roles = new Set(["hero", "evidence", "explainer", "data", "object"]);
 const codedKinds = new Set(["process", "relationship", "timeline", "framework", "comparison", "data", "mechanism"]);
 const newsTypes = new Set(["news_event", "mixed_news_commentary"]);
 const headlineRatio = 900 / 383;
 const evidenceFailureCodes = new Set(["http_error", "access_denied", "login_required", "network_error", "removed", "policy_blocked"]);
+const structureModes = new Set(["visible_sections", "implicit_flow", "hybrid"]);
 
 function nonEmpty(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -63,6 +66,11 @@ function nonEmpty(value) {
 function semanticSignature(value) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.filter(nonEmpty).map((item) => item.trim().toLowerCase()))];
+}
+
+function distinctNonEmptyStrings(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter(nonEmpty).map((item) => item.trim()))];
 }
 
 function validDimensions(value) {
@@ -257,6 +265,68 @@ if (typeof plan.classification_confidence !== "number" || plan.classification_co
 }
 if (!Array.isArray(plan.classification_signals) || !plan.classification_signals.some(nonEmpty)) {
   issues.push("classification_signals must record the semantic evidence used to classify the article.");
+}
+if (plan.editorial_contract_version !== undefined && plan.editorial_contract_version !== 1) {
+  issues.push("editorial_contract_version must be 1 when the versioned editorial plan is present.");
+}
+if (plan.editorial_plan !== undefined && plan.editorial_contract_version === undefined) {
+  issues.push("editorial_plan requires editorial_contract_version: 1 so its validation rules are explicit.");
+}
+if (plan.content_mode === "preserve" && (plan.editorial_contract_version !== undefined || plan.editorial_plan !== undefined)) {
+  issues.push("Preserve plans must omit editorial_contract_version and editorial_plan because no rewriting is authorized.");
+}
+if (plan.content_mode === "rewrite" && plan.editorial_contract_version === undefined) {
+  if (allowLegacyEditorial) {
+    warnings.push("Legacy rewrite plan has no editorial_contract_version; compatibility was explicitly allowed. Migrate before revising the article.");
+  } else {
+    issues.push("Rewrite plans require editorial_contract_version: 1. Use --allow-legacy-editorial only to inspect an unchanged legacy package.");
+  }
+}
+if (plan.content_mode === "rewrite" && plan.editorial_contract_version === 1) {
+  const editorial = plan.editorial_plan;
+  if (!editorial || typeof editorial !== "object" || Array.isArray(editorial)) {
+    issues.push("editorial_plan is required for rewrite content so narrative decisions are explicit and reviewable.");
+  } else {
+    for (const field of ["core_claim", "reader_question", "opening_anchor", "ending_claim", "structure_reason"]) {
+      if (!nonEmpty(editorial[field])) issues.push(`editorial_plan.${field} is required for rewrite content.`);
+    }
+    if (!structureModes.has(editorial.structure_mode)) {
+      issues.push("editorial_plan.structure_mode must be visible_sections, implicit_flow, or hybrid.");
+    }
+    const narrativeSpine = distinctNonEmptyStrings(editorial.narrative_spine);
+    if (narrativeSpine.length < 3 || narrativeSpine.length > 8) {
+      issues.push("editorial_plan.narrative_spine must contain 3-8 distinct ordered beats.");
+    }
+    const evidenceSequence = distinctNonEmptyStrings(editorial.evidence_sequence);
+    if (!Array.isArray(editorial.evidence_sequence)) {
+      issues.push("editorial_plan.evidence_sequence must be an array, even when the article needs no external evidence.");
+    } else if (newsTypes.has(plan.content_type) && evidenceSequence.length < 1) {
+      issues.push("News or mixed news commentary requires at least one editorial_plan.evidence_sequence item.");
+    }
+
+    if (plan.input_stage === "draft_copy") {
+      const voice = editorial.voice_fingerprint;
+      if (!voice || typeof voice !== "object" || Array.isArray(voice)) {
+        issues.push("editorial_plan.voice_fingerprint is required for draft_copy so revision does not flatten the author's voice.");
+      } else {
+        for (const field of ["person", "register", "rhythm", "emotional_temperature"]) {
+          if (!nonEmpty(voice[field])) issues.push(`editorial_plan.voice_fingerprint.${field} is required for draft_copy.`);
+        }
+        const protectedTraits = distinctNonEmptyStrings(voice.protected_traits);
+        if (protectedTraits.length < 1 || protectedTraits.length > 6) {
+          issues.push("editorial_plan.voice_fingerprint.protected_traits must contain 1-6 distinct traits to preserve.");
+        }
+      }
+      const revisionPriorities = distinctNonEmptyStrings(editorial.revision_priorities);
+      if (revisionPriorities.length < 1 || revisionPriorities.length > 6) {
+        issues.push("editorial_plan.revision_priorities must contain 1-6 ordered priorities for draft_copy.");
+      }
+    } else if (plan.input_stage === "messy_materials") {
+      if (editorial.voice_fingerprint !== undefined || editorial.revision_priorities !== undefined) {
+        issues.push("messy_materials must omit draft-only voice_fingerprint and revision_priorities fields.");
+      }
+    }
+  }
 }
 if (!new Set(["available", "unavailable"]).has(plan.image_generation_capability)) {
   issues.push("image_generation_capability must be available or unavailable.");
